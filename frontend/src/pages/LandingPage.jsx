@@ -121,10 +121,10 @@ const LandingPage = () => {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedCohort, setSelectedCohort] = useState(null);
 
+  // --- NEW FA AND FLA PROGRAMS ---
   const programs = [
-    { id: 'VA', name: 'Virtual Assistant', icon: '💻', cohorts: ['Cohort 14'] },
-    { id: 'AiCE', name: 'AI Career Essentials', icon: '🤖', cohorts: ['Cohort 17'] },
-    { id: 'PF', name: 'Prof. Foundations', icon: '🚀', cohorts: ['Cohort 12'] },
+    { id: 'FA', name: 'Founder Academy', icon: '💡', cohorts: ['Cohort 1', 'Cohort 2'] },
+    { id: 'FLA', name: 'Freelance Academy', icon: '💻', cohorts: ['Cohort 1', 'Cohort 2'] }
   ];
 
   // Feedback State
@@ -148,9 +148,7 @@ const LandingPage = () => {
   };
 
   const isRestrictedCohort = () => {
-    if (selectedProgram?.id === 'VA' && selectedCohort === 'Cohort 14') return true;
-    if (selectedProgram?.id === 'AiCE' && selectedCohort === 'Cohort 18') return true;
-    return false;
+    return false; // FA and FLA have no restrictions!
   };
 
   return (
@@ -235,7 +233,6 @@ const LandingPage = () => {
         )}
       </AnimatePresence>
 
-      {/* NEW ANIMATED LEADERBOARD */}
       <Leaderboard />
 
       <div style={styles.infoSection}>
@@ -332,7 +329,6 @@ const styles = {
 
   // --- LEADERBOARD STYLES ---
   leaderboardSection: { padding: '4rem 2rem', background: 'white', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  // UPDATED: Added marginTop to create space between text and podiums
   podiumContainer: { display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '15px', height: '300px', marginTop: '40px', marginBottom: '30px', maxWidth: '600px', width: '100%' },
   podiumBlockWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative' },
   avatar: { fontSize: '3rem', marginBottom: '10px' },
@@ -344,9 +340,3 @@ const styles = {
 };
 
 export default LandingPage;
-
-
-
-
-
-
