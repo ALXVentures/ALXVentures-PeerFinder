@@ -97,21 +97,21 @@ const AdminPage = () => {
   const downloadCSV = async () => {
     try {
       const res = await axios.post(`${API_URL}/api/admin/download`, { password }, { responseType: 'blob' });
-      triggerDownload(res.data, 'peer_data.csv');
+      triggerDownload(res.data, 'fa_fla_peer_data.csv');
     } catch (err) { alert("Download failed"); }
   };
 
   const downloadFeedback = async () => {
     try {
       const res = await axios.post(`${API_URL}/api/admin/download-feedback`, { password }, { responseType: 'blob' });
-      triggerDownload(res.data, 'feedback.csv');
+      triggerDownload(res.data, 'fa_fla_feedback.csv');
     } catch (err) { alert("Feedback download failed"); }
   };
 
   const downloadSessionFeedback = async () => {
     try {
       const res = await axios.post(`${API_URL}/api/admin/download-session-feedback`, { password }, { responseType: 'blob' });
-      triggerDownload(res.data, 'peer_session_feedback.csv');
+      triggerDownload(res.data, 'fa_fla_session_feedback.csv');
     } catch (err) { alert("Session Feedback download failed"); }
   };
 
@@ -182,7 +182,9 @@ const AdminPage = () => {
               onChange={e => { setProgramFilter(e.target.value); setCurrentGroupPage(1); }} 
               style={styles.programSelect}
             >
-                <option value="All">All Programs</option><option value="VA">VA</option><option value="AiCE">AiCE</option><option value="PF">PF</option>
+                <option value="All">All Programs</option>
+                <option value="FA">Founder Academy (FA)</option>
+                <option value="FLA">Freelance Academy (FLA)</option>
             </select>
         </div>
         <div style={{display:'flex', gap:'10px'}}>
@@ -418,4 +420,3 @@ styleSheet.innerText = `td, th { padding: 12px; text-align: left; } th { backgro
 document.head.appendChild(styleSheet);
 
 export default AdminPage;
-
