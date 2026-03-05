@@ -42,10 +42,10 @@ s3 = boto3.client(
     region_name=AWS_DEFAULT_REGION
 )
 
-# === FILE NAMES ===
-CSV_OBJECT_KEY = 'peer_matching_data_v2.csv' 
-FEEDBACK_OBJECT_KEY = 'peer_finder_feedback.csv'
-SESSION_FEEDBACK_OBJECT_KEY = 'peer_session_feedback.csv'
+# === NEW FILE NAMES FOR FA & FLA ===
+CSV_OBJECT_KEY = 'fa_fla_peerfinder_data.csv' 
+FEEDBACK_OBJECT_KEY = 'fa_fla_feedback.csv'
+SESSION_FEEDBACK_OBJECT_KEY = 'fa_fla_session_feedback.csv'
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
 
 # === PROGRAM CREDENTIALS ===
@@ -61,17 +61,13 @@ def load_google_token(env_var_name):
         return None
 
 PROGRAM_CREDENTIALS = {
-    'VA': {
-        'email': os.environ.get('VA_EMAIL', 'vaprogram@alxafrica.com'),
-        'token': load_google_token('VA_GOOGLE_TOKEN')
+    'FA': {
+        'email': os.environ.get('FA_EMAIL', 'programs@alx-ventures.com'),
+        'token': load_google_token('ALXVENTURES_GOOGLE_TOKEN')
     },
-    'AiCE': {
-        'email': os.environ.get('AICE_EMAIL', 'aice@alxafrica.com'),
-        'token': load_google_token('AICE_GOOGLE_TOKEN')
-    },
-    'PF': {
-        'email': os.environ.get('PF_EMAIL', 'alxfoundations@alxafrica.com'),
-        'token': load_google_token('PF_GOOGLE_TOKEN')
+    'FLA': {
+        'email': os.environ.get('FLA_EMAIL', 'programs@alx-ventures.com'),
+        'token': load_google_token('ALXVENTURES_GOOGLE_TOKEN')
     }
 }
 
@@ -86,7 +82,7 @@ def validate_registration(data):
         errors.append("Invalid email address format")
     if not re.match(r'^\+?[1-9]\d{1,14}$', data.get('phone', '').replace(' ', '')):
         errors.append("Invalid phone number. Use format +1234567890")
-    if data.get('program') not in ['VA', 'AiCE', 'PF']:
+    if data.get('program') not in ['FA', 'FLA']:
         errors.append("Invalid program selected")
     if data.get('connection_type') not in ['find', 'offer', 'need']:
         errors.append("Invalid connection type")
@@ -112,7 +108,7 @@ def api_wrapper(f):
 # === GMAIL FUNCTIONS ===
 def get_gmail_service(program_name):
     if not program_name or program_name not in PROGRAM_CREDENTIALS:
-        program_name = 'PF' 
+        program_name = 'FA' 
     config = PROGRAM_CREDENTIALS[program_name]
     try:
         creds = Credentials.from_authorized_user_info(config['token'], SCOPES)
@@ -156,7 +152,7 @@ def send_email(to, subject, body, program_name, is_html=True):
         logger.error(f"Email Error: {str(e)}")
         return False
 
-# NEW: Helper function to generate and send group match emails with WhatsApp links
+# Helper function to generate and send group match emails with WhatsApp links
 def notify_group_match(df, group_id):
     grp = df[df['group_id'] == group_id]
     
@@ -165,7 +161,7 @@ def notify_group_match(df, group_id):
         
         for _, peer in grp.iterrows():
             if peer['id'] != current_user['id']:
-                # Clean phone number for WhatsApp link (remove spaces, +, and dashes)
+                # Clean phone number for WhatsApp link
                 clean_phone = re.sub(r'\D', '', str(peer['phone']))
                 wa_link = f"https://wa.me/{clean_phone}"
                 
@@ -264,7 +260,7 @@ def availability_match(a1, a2):
 @app.route('/', methods=['GET'])
 @api_wrapper
 def health():
-    return jsonify({"status": "active", "version": "6.0-Validated"})
+    return jsonify({"status": "active", "version": "FA_FLA_Version"})
 
 @app.route('/api/register', methods=['POST'])
 @api_wrapper
@@ -330,7 +326,6 @@ def register():
     df = pd.concat([df, pd.DataFrame([new_user])], ignore_index=True)
     upload_csv(df)
     
-    # NEW FORMATTED WAITING EMAIL
     wait_body = f"""
     <h2 style="color: #091F40; margin-top: 0;">You're in Queue! ⏳</h2>
     Hi <strong>{data['name']}</strong>,<br/><br/>
@@ -353,12 +348,8 @@ def register():
 def status(identifier):
     df = download_csv()
     ident_lower = identifier.strip().lower()
-    
-    # UPDATE: Sort by timestamp so email login grabs the most recent profile
     user_rows = df[(df['id'] == identifier.strip()) | (df['email'].str.lower() == ident_lower)].sort_values(by='timestamp', ascending=False)
-    
-    if user_rows.empty: 
-        return jsonify({"error": "Not found"}), 404
+    if user_rows.empty: return jsonify({"error": "Not found"}), 404
         
     u = user_rows.iloc[0]
     res = {
@@ -455,7 +446,7 @@ def match():
 
     if updated:
         upload_csv(df)
-        notify_group_match(df, gid) # Send new dynamic emails!
+        notify_group_match(df, gid)
         return jsonify({'matched': True, 'group_id': gid})
     
     upload_csv(df)
@@ -467,7 +458,7 @@ def match():
 def leave_group(user_id=None):
     data = request.get_json() or {}
     target_id = user_id or data.get('user_id')
-    delete_profile = data.get('delete_profile', False) # NEW: Check if they want to be deleted
+    delete_profile = data.get('delete_profile', False)
     
     df = download_csv()
     user_rows = df[df['id'] == target_id]
@@ -476,12 +467,10 @@ def leave_group(user_id=None):
     idx = user_rows.index[0]
     old_group_id = df.at[idx, 'group_id'] 
     
-    # 1. Unpair the user
     df.at[idx, 'matched'] = False
     df.at[idx, 'group_id'] = ''
     df.at[idx, 'unpair_reason'] = data.get('reason', 'User Requested')
     
-    # 2. Ghost Group Logic (Put the remaining partner back in queue)
     if old_group_id:
         remaining_members = df[df['group_id'] == old_group_id]
         if len(remaining_members) == 1:
@@ -489,7 +478,6 @@ def leave_group(user_id=None):
             df.at[rem_idx, 'matched'] = False
             df.at[rem_idx, 'group_id'] = ''
             
-    # 3. NEW: If they chose "Completely delete me", drop their row entirely
     if delete_profile:
         df = df.drop(index=idx)
         
@@ -564,8 +552,7 @@ def random_pair():
     df.loc[idx_list, 'matched_timestamp'] = iso
     upload_csv(df)
     
-    notify_group_match(df, gid) # Send new dynamic emails
-        
+    notify_group_match(df, gid)
     return jsonify({"success": True, "message": "Matched!"})
 
 @app.route('/api/admin/manual-pair', methods=['POST'])
@@ -590,8 +577,7 @@ def manual_pair():
     df.loc[rows.index, 'matched_timestamp'] = iso
     upload_csv(df)
     
-    notify_group_match(df, gid) # Send new dynamic emails
-        
+    notify_group_match(df, gid)
     return jsonify({"success": True, "message": "Paired!"})
 
 @app.route('/api/admin/download', methods=['POST'])
@@ -621,7 +607,7 @@ def submit_peer_session_feedback():
         'id': str(uuid.uuid4()),
         'timestamp': datetime.now(timezone.utc).isoformat(),
         'email': data.get('email', ''),
-        'peer_email': data.get('peer_email', ''), # <--- ADD THIS LINE
+        'peer_email': data.get('peer_email', ''),
         'program': data.get('program', ''),
         'session_happened': data.get('session_happened', ''),
         'no_session_reason': data.get('no_session_reason', ''),
@@ -673,37 +659,29 @@ def get_leaderboard():
     df_feedback['peer_rating'] = pd.to_numeric(df_feedback['peer_rating'], errors='coerce').fillna(0)
     df_feedback['session_rating'] = pd.to_numeric(df_feedback['session_rating'], errors='coerce').fillna(0)
     
-    # --- THE MAGIC FILTER --- 
-    # ONLY rank based on feedback submitted by a "HelpSeeker" (meaning the peer was the Volunteer!)
+    # ONLY rank based on feedback submitted by a "HelpSeeker"
     valid_feedback = df_feedback[(df_feedback['peer_email'] != '') & (df_feedback['role'] == 'HelpSeeker')].copy()
     
-    # --- POINT CALCULATION LOGIC ---
     def calculate_points(row):
-        score = row['peer_rating'] + row['session_rating'] # Up to 10 points (5 stars each)
-        
+        score = row['peer_rating'] + row['session_rating']
         if str(row.get('h_respected')).strip().lower() == 'yes':
             score += 5
-            
         clarified = str(row.get('h_clarified')).strip().lower()
         if clarified == 'yes':
             score += 5
         elif clarified == 'partially':
             score += 2
-            
         if str(row.get('h_outcome')).strip().lower() == 'submit the deliverable':
             score += 5
-            
         return score
 
     if not valid_feedback.empty:
         valid_feedback['points'] = valid_feedback.apply(calculate_points, axis=1)
-        # Group by the volunteer's email and sum their total points
         leaders = valid_feedback.groupby('peer_email')['points'].sum().reset_index()
-        leaders = leaders.sort_values(by='points', ascending=False).head(10) # Top 10
+        leaders = leaders.sort_values(by='points', ascending=False).head(10)
     else:
         return jsonify({"success": True, "leaderboard": []})
     
-    # Map the emails back to real names
     leaderboard = []
     for _, row in leaders.iterrows():
         p_email = row['peer_email']
@@ -722,5 +700,3 @@ def get_leaderboard():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')
-
-
