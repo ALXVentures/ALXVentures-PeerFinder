@@ -232,15 +232,19 @@ def download_csv(key=CSV_OBJECT_KEY):
                 if col not in df.columns:
                     df[col] = False if col in ['matched', 'match_attempted'] else ''
             
+            # FIX: Added timestamp and matched_timestamp explicitly so Pandas NEVER treats them as float64!
             str_cols = ['id', 'name', 'phone', 'email', 'country', 'program', 'cohort', 
                        'topic_module', 'availability', 'connection_type', 'group_id', 
                        'open_to_global_pairing', 'preferred_study_setup', 'kind_of_support', 
-                       'learning_preferences', 'unpair_reason']
+                       'learning_preferences', 'unpair_reason', 'timestamp', 'matched_timestamp']
             
             for c in str_cols: 
-                if c in df.columns: df[c] = df[c].astype(str).str.strip().replace('nan', '')
+                if c in df.columns: 
+                    # THE SUPER CLEANER: Converts to string, removes .0 floats, crushes double spaces, strips edges, removes nans!
+                    df[c] = df[c].astype(str).str.replace(r'\.0$', '', regex=True).str.replace(r'\s+', ' ', regex=True).str.strip().replace('nan', '')
             
             if 'matched' in df.columns: df['matched'] = df['matched'].apply(clean_boolean)
+            if 'match_attempted' in df.columns: df['match_attempted'] = df['match_attempted'].apply(clean_boolean)
             if 'email' in df.columns: df['email'] = df['email'].str.lower()
             
         return df
@@ -252,15 +256,23 @@ def upload_csv(df, key=CSV_OBJECT_KEY):
     df.to_csv(csv_buffer, index=False)
     s3.put_object(Bucket=AWS_S3_BUCKET, Key=key, Body=csv_buffer.getvalue(), ContentType='text/csv')
 
+# STRING NORMALIZER: Destroys hidden double spaces and weird formatting for perfect matching
+def normalize_str(val):
+    if pd.isna(val) or val is None: return ""
+    return re.sub(r'\s+', ' ', str(val)).strip().lower()
+
 def availability_match(a1, a2):
-    return (a1 == 'Flexible' or a2 == 'Flexible' or a1 == a2) if (pd.notna(a1) and pd.notna(a2)) else False
+    a1_clean = normalize_str(a1)
+    a2_clean = normalize_str(a2)
+    if not a1_clean or not a2_clean: return False
+    return (a1_clean == 'flexible' or a2_clean == 'flexible' or a1_clean == a2_clean)
 
 # === ROUTES ===
 
 @app.route('/', methods=['GET'])
 @api_wrapper
 def health():
-    return jsonify({"status": "active", "version": "FA_FLA_Version"})
+    return jsonify({"status": "active", "version": "FA_FLA_Version_SuperCleaned"})
 
 @app.route('/api/register', methods=['POST'])
 @api_wrapper
@@ -377,7 +389,10 @@ def match():
     
     idx = user_rows.index[0]
     user = user_rows.iloc[0]
+    
+    # Save attempt instantly
     df.at[idx, 'match_attempted'] = True
+    upload_csv(df)
     
     if bool(user['matched']): return jsonify({'matched': True})
     
@@ -385,30 +400,38 @@ def match():
     gid = f"group-{uuid.uuid4()}"
     iso = datetime.now(timezone.utc).isoformat()
     
+    # Safe String formatting to prevent hidden space bugs
+    u_program = normalize_str(user['program'])
+    u_cohort = normalize_str(user['cohort'])
+    u_country = normalize_str(user['country'])
+    u_module = normalize_str(user['topic_module'])
+    u_avail = normalize_str(user['availability'])
+
     program_pool = df[
         (df['matched'] == False) & 
-        (df['program'] == user['program']) & 
+        (df['program'].apply(normalize_str) == u_program) & 
         (df['id'] != user_id)
     ]
 
     if user['connection_type'] == 'find':
-        size = str(user['preferred_study_setup']) if user['preferred_study_setup'] else '2'
+        size = str(user['preferred_study_setup']).replace('.0', '').strip() if pd.notna(user['preferred_study_setup']) and user['preferred_study_setup'] else '2'
+        
         base_pool = program_pool[
             (program_pool['connection_type'] == 'find') &
-            (program_pool['preferred_study_setup'] == size)
+            (program_pool['preferred_study_setup'].astype(str).str.replace('.0', '', regex=False).str.strip() == size)
         ]
 
         if str(user.get('open_to_global_pairing', '')).strip().upper() == 'YES':
             pool = base_pool[
-                (base_pool['cohort'] == user['cohort']) &
-                ((base_pool['country'] == user['country']) | (base_pool['open_to_global_pairing'].str.strip().str.upper() == 'YES'))
+                (base_pool['cohort'].apply(normalize_str) == u_cohort) &
+                ((base_pool['country'].apply(normalize_str) == u_country) | (base_pool['open_to_global_pairing'].astype(str).str.strip().str.upper() == 'YES'))
             ].copy()
         else:
             pool = base_pool[
-                (base_pool['cohort'] == user['cohort']) &
-                (base_pool['country'] == user['country']) &
-                (base_pool['topic_module'] == user['topic_module']) & 
-                (base_pool['availability'].apply(lambda x: availability_match(str(x), str(user['availability']))))
+                (base_pool['cohort'].apply(normalize_str) == u_cohort) &
+                (base_pool['country'].apply(normalize_str) == u_country) &
+                (base_pool['topic_module'].apply(normalize_str) == u_module) & 
+                (base_pool['availability'].apply(lambda x: availability_match(str(x), u_avail)))
             ].copy()
         
         if len(pool) >= (int(size) - 1):
@@ -425,15 +448,15 @@ def match():
         
         if str(user.get('open_to_global_pairing', '')).strip().upper() == 'YES':
             pool = base_pool[
-                (base_pool['cohort'] == user['cohort']) &
-                ((base_pool['country'] == user['country']) | (base_pool['open_to_global_pairing'].str.strip().str.upper() == 'YES'))
+                (base_pool['cohort'].apply(normalize_str) == u_cohort) &
+                ((base_pool['country'].apply(normalize_str) == u_country) | (base_pool['open_to_global_pairing'].astype(str).str.strip().str.upper() == 'YES'))
             ].copy()
         else:
             pool = base_pool[
-                (base_pool['cohort'] == user['cohort']) &
-                (base_pool['country'] == user['country']) &
-                (base_pool['topic_module'] == user['topic_module']) &
-                (base_pool['availability'].apply(lambda x: availability_match(str(x), str(user['availability']))))
+                (base_pool['cohort'].apply(normalize_str) == u_cohort) &
+                (base_pool['country'].apply(normalize_str) == u_country) &
+                (base_pool['topic_module'].apply(normalize_str) == u_module) &
+                (base_pool['availability'].apply(lambda x: availability_match(str(x), u_avail)))
             ].copy()
         
         if not pool.empty:
@@ -449,7 +472,6 @@ def match():
         notify_group_match(df, gid)
         return jsonify({'matched': True, 'group_id': gid})
     
-    upload_csv(df)
     return jsonify({'matched': False})
 
 
@@ -530,13 +552,13 @@ def random_pair():
     if bool(t_row.iloc[0]['matched']): return jsonify({"error": "Already matched"}), 400
     
     user = t_row.iloc[0]
-    size = str(user['preferred_study_setup']) if user['preferred_study_setup'] else '2'
+    size = str(user['preferred_study_setup']).replace('.0', '').strip() if pd.notna(user['preferred_study_setup']) and user['preferred_study_setup'] else '2'
     
     pool = df[
         (df['matched'] == False) & 
         (df['id'] != tid) &
-        (df['program'] == user['program']) &
-        (df['preferred_study_setup'] == size)
+        (df['program'].apply(normalize_str) == normalize_str(user['program'])) &
+        (df['preferred_study_setup'].astype(str).str.replace('.0', '', regex=False).str.strip() == size)
     ]
     
     needed = int(size) - 1
