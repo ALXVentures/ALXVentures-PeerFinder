@@ -10,8 +10,17 @@ const africanCountries = [
   "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon", "Central African Republic", "Chad", "Comoros", "Congo (Brazzaville)", "Congo (Kinshasa)", "Côte d'Ivoire", "Djibouti", "Egypt", "Equatorial Guinea", "Eritrea", "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe", "Non-African"
 ];
 
+// FULLY RESTORED TIME ZONE DICTIONARY
 const countryToTimezone = {
-  "Nigeria": "UTC+1", "Kenya": "UTC+3", "South Africa": "UTC+2", "Ghana": "UTC", "Rwanda": "UTC+2", "Egypt": "UTC+2"
+  "Algeria": "UTC+1", "Angola": "UTC+1", "Benin": "UTC+1", "Botswana": "UTC+2", "Burkina Faso": "UTC", "Burundi": "UTC+2", "Cabo Verde": "UTC-1",
+  "Cameroon": "UTC+1", "Central African Republic": "UTC+1", "Chad": "UTC+1", "Comoros": "UTC+3", "Congo (Brazzaville)": "UTC+1",
+  "Congo (Kinshasa)": "UTC+1", "Côte d'Ivoire": "UTC", "Djibouti": "UTC+3", "Egypt": "UTC+2", "Equatorial Guinea": "UTC+1",
+  "Eritrea": "UTC+3", "Eswatini": "UTC+2", "Ethiopia": "UTC+3", "Gabon": "UTC+1", "Gambia": "UTC", "Ghana": "UTC", "Guinea": "UTC",
+  "Guinea-Bissau": "UTC", "Kenya": "UTC+3", "Lesotho": "UTC+2", "Liberia": "UTC", "Libya": "UTC+2", "Madagascar": "UTC+3", "Malawi": "UTC+2",
+  "Mali": "UTC", "Mauritania": "UTC", "Mauritius": "UTC+4", "Morocco": "UTC+1", "Mozambique": "UTC+2", "Namibia": "UTC+2", "Niger": "UTC+1",
+  "Nigeria": "UTC+1", "Rwanda": "UTC+2", "Sao Tome and Principe": "UTC", "Senegal": "UTC", "Seychelles": "UTC+4",
+  "Sierra Leone": "UTC", "Somalia": "UTC+3", "South Africa": "UTC+2", "South Sudan": "UTC+2", "Sudan": "UTC+2", "Tanzania": "UTC+3",
+  "Togo": "UTC", "Tunisia": "UTC+1", "Uganda": "UTC+3", "Zambia": "UTC+2", "Zimbabwe": "UTC+2"
 };
 
 const utcOffsets = Array.from({ length: 27 }, (_, i) => {
@@ -276,9 +285,9 @@ const RegisterPage = () => {
                 <label style={styles.label}>Support Type</label>
                 <select style={styles.select} name="kind_of_support" onChange={handleChange} required value={formData.kind_of_support}>
                     <option value="">--Select--</option>
-                    <option value="Idea validation">Idea Validation</option>
-                    <option value="pitching support">Pitching Support</option>
-                    <option value="business model refinement">Business Model Refinement</option>
+                    <option value="Idea validation">Idea validation</option>
+                    <option value="pitching support">pitching support</option>
+                    <option value="business model refinement">business model refinement</option>
                 </select>
               </div>
            )}
