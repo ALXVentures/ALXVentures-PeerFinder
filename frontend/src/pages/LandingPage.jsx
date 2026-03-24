@@ -49,7 +49,7 @@ const Leaderboard = () => {
       .catch(err => console.error("Error fetching leaderboard", err));
   }, []);
 
-  if (leaders.length === 0) return null; // Don't show if no data yet
+  if (leaders.length === 0) return null;
 
   const first = leaders[0];
   const second = leaders[1];
@@ -118,10 +118,11 @@ const LandingPage = () => {
   
   // Selection State
   const [step, setStep] = useState(1);
+  const [selectedObjective, setSelectedObjective] = useState("");
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedCohort, setSelectedCohort] = useState(null);
 
-  // --- NEW FA AND FLA PROGRAMS ---
+  // --- FA AND FLA PROGRAMS ---
   const programs = [
     { id: 'FA', name: 'Founder Academy', icon: '💡', cohorts: ['Cohort 4'] },
     { id: 'FLA', name: 'Freelance Academy', icon: '💻', cohorts: ['Cohort 4'] }
@@ -133,7 +134,13 @@ const LandingPage = () => {
   const [comment, setComment] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
 
-  const resetModal = () => { setShowModal(false); setStep(1); setSelectedProgram(null); setSelectedCohort(null); };
+  const resetModal = () => { 
+      setShowModal(false); 
+      setStep(1); 
+      setSelectedObjective(""); 
+      setSelectedProgram(null); 
+      setSelectedCohort(null); 
+  };
 
   const submitFeedback = async () => {
     try {
@@ -144,11 +151,14 @@ const LandingPage = () => {
   };
 
   const handleOptionSelect = (type) => {
-    navigate('/register', { state: { program: selectedProgram.id, cohort: selectedCohort, connectionType: type } });
-  };
-
-  const isRestrictedCohort = () => {
-    return false; // FA and FLA have no restrictions!
+    navigate('/register', { 
+        state: { 
+            program: selectedProgram.id, 
+            cohort: selectedCohort, 
+            connectionType: type, 
+            userObjective: selectedObjective 
+        } 
+    });
   };
 
   return (
@@ -183,13 +193,52 @@ const LandingPage = () => {
           <motion.div style={styles.modalOverlay} onClick={resetModal}>
             <motion.div style={styles.modalCard} onClick={e => e.stopPropagation()}>
               
-              {/* Step 1: Program Selection */}
+              {/* Step 1: Psychological Primer / Objective Selection */}
               {step === 1 && (
                 <>
+                  <h2 style={{color: colors.primary.berkeleyBlue, marginBottom: '10px'}}>What would you like help with? 🤝</h2>
+                  <p style={{color: '#666', marginBottom: '20px', fontSize: '1rem'}}>Tell us what kind of support would be most helpful.</p>
+                  
+                  <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                    <select 
+                      style={styles.select} 
+                      value={selectedObjective} 
+                      onChange={(e) => setSelectedObjective(e.target.value)}
+                    >
+                      <option value="">-- Select an option --</option>
+                      <option value="Accountability to stay on track">Accountability to stay on track</option>
+                      <option value="Feedback on my ideas or Freelancer Canvas">Feedback on my ideas or Freelancer Canvas</option>
+                      <option value="Talking through a strategy challenge">Talking through a strategy challenge</option>
+                      <option value="Co-working or focus sessions">Co-working or focus sessions</option>
+                      <option value="I’m open to anything">I’m open to anything</option>
+                    </select>
+                  </div>
+
+                  <motion.button 
+                    whileHover={selectedObjective ? { scale: 1.05 } : {}} 
+                    whileTap={selectedObjective ? { scale: 0.95 } : {}} 
+                    onClick={() => setStep(2)} 
+                    disabled={!selectedObjective}
+                    style={{
+                      ...styles.primaryBtn, 
+                      width: '100%', 
+                      opacity: selectedObjective ? 1 : 0.5,
+                      cursor: selectedObjective ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    Continue &rarr;
+                  </motion.button>
+                </>
+              )}
+
+              {/* Step 2: Program Selection */}
+              {step === 2 && (
+                <>
+                  <button style={styles.backLink} onClick={() => setStep(1)}>&larr; Back</button>
                   <h2 style={{color: colors.primary.berkeleyBlue}}>Select Program 🎓</h2>
                   <div style={{display: 'flex', flexDirection: 'row', gap: '15px', justifyContent: 'center', marginTop:'20px'}}>
                     {programs.map(p => (
-                      <motion.button key={p.id} whileHover={{ scale: 1.1, backgroundColor: colors.primary.iris, color: 'white', border: 'none' }} whileTap={{ scale: 0.95 }} style={styles.programBtn} onClick={() => { setSelectedProgram(p); setStep(2); }}>
+                      <motion.button key={p.id} whileHover={{ scale: 1.1, backgroundColor: colors.primary.iris, color: 'white', border: 'none' }} whileTap={{ scale: 0.95 }} style={styles.programBtn} onClick={() => { setSelectedProgram(p); setStep(3); }}>
                         <span style={{fontSize: '2rem', display:'block', marginBottom:'5px'}}>{p.icon}</span>
                         {p.name}
                       </motion.button>
@@ -198,34 +247,29 @@ const LandingPage = () => {
                 </>
               )}
 
-              {/* Step 2: Cohort Selection */}
-              {step === 2 && (
+              {/* Step 3: Cohort Selection */}
+              {step === 3 && (
                 <>
-                  <button style={styles.backLink} onClick={() => setStep(1)}>&larr; Back</button>
+                  <button style={styles.backLink} onClick={() => setStep(2)}>&larr; Back</button>
                   <h2 style={{color: colors.primary.berkeleyBlue}}>Select Cohort</h2>
                   <div style={styles.modalGrid}>
                     {selectedProgram.cohorts.map(c => (
-                      <motion.button key={c} whileHover={{ scale: 1.05, backgroundColor: colors.primary.iris, color: 'white' }} style={styles.optionBtn} onClick={() => { setSelectedCohort(c); setStep(3); }}>{c}</motion.button>
+                      <motion.button key={c} whileHover={{ scale: 1.05, backgroundColor: colors.primary.iris, color: 'white' }} style={styles.optionBtn} onClick={() => { setSelectedCohort(c); setStep(4); }}>{c}</motion.button>
                     ))}
                   </div>
                 </>
               )}
 
-              {/* Step 3: Option Selection */}
-              {step === 3 && (
+              {/* Step 4: Option Selection */}
+              {step === 4 && (
                 <>
-                  <button style={styles.backLink} onClick={() => setStep(2)}>&larr; Back</button>
+                  <button style={styles.backLink} onClick={() => setStep(3)}>&larr; Back</button>
                   <h2 style={{color: colors.primary.berkeleyBlue}}>Options</h2>
                   <div style={styles.modalGrid}>
                     <OptionCard title="Find / Be a Co-Founder 🚀" desc="Startup Matchmaker" color={colors.primary.berkeleyBlue} onClick={() => handleOptionSelect('cofounder')} />
                     <OptionCard title="Find a Study Buddy 🤝" desc="Accountability Partner / Group" color={colors.primary.iris} onClick={() => handleOptionSelect('find')} />
-                    
-                    {!isRestrictedCohort() && (
-                      <>
-                        <OptionCard title="Offer Support 💁‍♀️" desc="Volunteer Mode ⭐⭐⭐ " color={colors.primary.springGreen} textColor={colors.primary.berkeleyBlue} onClick={() => handleOptionSelect('offer')} />
-                        <OptionCard title="Request Support 🆘" desc="I am Behind / Struggling" color={colors.secondary.tomato} onClick={() => handleOptionSelect('need')} />
-                      </>
-                    )}
+                    <OptionCard title="Offer Support 💁‍♀️" desc="Volunteer Mode ⭐⭐⭐ " color={colors.primary.springGreen} textColor={colors.primary.berkeleyBlue} onClick={() => handleOptionSelect('offer')} />
+                    <OptionCard title="Request Support 🆘" desc="I am Behind / Struggling" color={colors.secondary.tomato} onClick={() => handleOptionSelect('need')} />
                   </div>
                 </>
               )}
@@ -327,6 +371,9 @@ const styles = {
   footer: { background: colors.primary.berkeleyBlue, color: 'rgba(255,255,255,0.6)', textAlign: 'center', padding: '2rem', fontSize: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.1)' },
   feedbackBtn: { position: 'fixed', bottom: '20px', left: '20px', padding: '10px 20px', borderRadius: '30px', border: 'none', background: colors.primary.iris, color: 'white', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '5px', zIndex: 100 },
   peerFeedbackBtn: { position: 'fixed', bottom: '20px', right: '20px', padding: '12px 24px', borderRadius: '30px', border: 'none', background: colors.secondary.tomato, color: 'white', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 100 },
+
+  // --- NEW STYLES ---
+  select: { width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', backgroundColor: 'white', boxSizing: 'border-box', outlineColor: colors.secondary.electricBlue },
 
   // --- LEADERBOARD STYLES ---
   leaderboardSection: { padding: '4rem 2rem', background: 'white', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' },
