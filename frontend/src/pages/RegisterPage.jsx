@@ -213,8 +213,8 @@ const RegisterPage = () => {
 
            {/* --- NON-COFOUNDER ACADEMIC PREFERENCES --- */}
            {connectionType !== 'cofounder' && (
-               <div style={styles.row}>
-                 <div style={styles.half}>
+               <div style={connectionType === 'find' ? styles.row : {}}>
+                 <div style={connectionType === 'find' ? styles.half : { marginBottom: '15px' }}>
                     <label style={styles.label}>Where are you in your learning journey?</label>
                     <select style={styles.select} name="topic_module" onChange={handleChange} required value={formData.topic_module}>
                         <option value="">--Select Phase--</option>
@@ -226,17 +226,21 @@ const RegisterPage = () => {
                         <option value="Investor Readiness: I have secured paying customers and I am now preparing my pitch and fundraising strategy.">Investor Readiness: I have secured paying customers and I am now preparing my pitch and fundraising strategy.</option>
                     </select>
                  </div>
-                 <div style={styles.half}>
-                    <label style={styles.label}>Why should I connect with someone?</label>
-                    <select style={styles.select} name="learning_preferences" onChange={handleChange} required value={formData.learning_preferences}>
-                        <option value="">--Select Reason--</option>
-                        <option value="Deep dive discussion">Deep dive discussion</option>
-                        <option value="Feedback and idea review">Feedback and idea review</option>
-                        <option value="Co-working / accountability sessions">Co-working / accountability sessions</option>
-                        <option value="Learning check-ins">Learning check-ins</option>
-                        <option value="Flexible">Flexible</option>
-                    </select>
-                 </div>
+                 
+                 {/* Only display learning_preferences if looking for a Study Buddy */}
+                 {connectionType === 'find' && (
+                     <div style={styles.half}>
+                        <label style={styles.label}>Why should I connect with someone?</label>
+                        <select style={styles.select} name="learning_preferences" onChange={handleChange} required value={formData.learning_preferences}>
+                            <option value="">--Select Reason--</option>
+                            <option value="Deep dive discussion">Deep dive discussion</option>
+                            <option value="Feedback and idea review">Feedback and idea review</option>
+                            <option value="Co-working / accountability sessions">Co-working / accountability sessions</option>
+                            <option value="Learning check-ins">Learning check-ins</option>
+                            <option value="Flexible">Flexible</option>
+                        </select>
+                     </div>
+                 )}
                </div>
            )}
 
@@ -331,9 +335,6 @@ const styles = {
   backBtn: { alignSelf: 'flex-start', marginBottom: '20px', background: 'transparent', border: `1px solid ${colors.secondary.electricBlue}`, color: colors.secondary.electricBlue, padding: '8px 16px', borderRadius: '20px', cursor: 'pointer' },
   card: { background: colors.primary.white, padding: '2.5rem', borderRadius: '16px', width: '100%', maxWidth: '600px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' },
   header: { textAlign: 'center', color: colors.primary.berkeleyBlue, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 'bold' },
-  warningBox: { background: '#fffbf0', border: `1px solid ${colors.secondary.gold}`, borderRadius: '12px', padding: '15px', marginBottom: '25px', color: '#856404' },
-  warningTitle: { margin: '0 0 10px 0', fontSize: '1rem', color: colors.secondary.tomato },
-  warningList: { paddingLeft: '20px', margin: 0 },
   form: { display: 'flex', flexDirection: 'column', gap: '15px' },
   row: { display: 'flex', gap: '15px' },
   half: { flex: 1 },
