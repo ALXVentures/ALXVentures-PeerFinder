@@ -276,9 +276,9 @@ const RegisterPage = () => {
                 <label style={styles.label}>Support Type</label>
                 <select style={styles.select} name="kind_of_support" onChange={handleChange} required value={formData.kind_of_support}>
                     <option value="">--Select--</option>
-                    <option value="Idea validation">Idea validation</option>
-                    <option value="pitching support">pitching support</option>
-                    <option value="business model refinement">business model refinement</option>
+                    <option value="Idea validation">Idea Validation</option>
+                    <option value="pitching support">Pitching Support</option>
+                    <option value="business model refinement">Business Model Refinement</option>
                 </select>
               </div>
            )}
