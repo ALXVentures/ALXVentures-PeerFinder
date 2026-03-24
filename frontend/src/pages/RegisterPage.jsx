@@ -6,30 +6,12 @@ import { colors, fonts } from '../theme';
 import Spinner from '../components/Spinner';
 import { API_URL } from '../config';
 
-// --- FULL LIST OF COUNTRIES ---
 const africanCountries = [
-  "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde",
-  "Cameroon", "Central African Republic", "Chad", "Comoros", "Congo (Brazzaville)",
-  "Congo (Kinshasa)", "Côte d'Ivoire", "Djibouti", "Egypt", "Equatorial Guinea",
-  "Eritrea", "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea",
-  "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi",
-  "Mali", "Mauritania", "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger",
-  "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles",
-  "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania",
-  "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe", "Non-African"
+  "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon", "Central African Republic", "Chad", "Comoros", "Congo (Brazzaville)", "Congo (Kinshasa)", "Côte d'Ivoire", "Djibouti", "Egypt", "Equatorial Guinea", "Eritrea", "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe", "Non-African"
 ];
 
-// --- TIME ZONE MAPPING ---
 const countryToTimezone = {
-  "Algeria": "UTC+1", "Angola": "UTC+1", "Benin": "UTC+1", "Botswana": "UTC+2", "Burkina Faso": "UTC", "Burundi": "UTC+2", "Cabo Verde": "UTC-1",
-  "Cameroon": "UTC+1", "Central African Republic": "UTC+1", "Chad": "UTC+1", "Comoros": "UTC+3", "Congo (Brazzaville)": "UTC+1",
-  "Congo (Kinshasa)": "UTC+1", "Côte d'Ivoire": "UTC", "Djibouti": "UTC+3", "Egypt": "UTC+2", "Equatorial Guinea": "UTC+1",
-  "Eritrea": "UTC+3", "Eswatini": "UTC+2", "Ethiopia": "UTC+3", "Gabon": "UTC+1", "Gambia": "UTC", "Ghana": "UTC", "Guinea": "UTC",
-  "Guinea-Bissau": "UTC", "Kenya": "UTC+3", "Lesotho": "UTC+2", "Liberia": "UTC", "Libya": "UTC+2", "Madagascar": "UTC+3", "Malawi": "UTC+2",
-  "Mali": "UTC", "Mauritania": "UTC", "Mauritius": "UTC+4", "Morocco": "UTC+1", "Mozambique": "UTC+2", "Namibia": "UTC+2", "Niger": "UTC+1",
-  "Nigeria": "UTC+1", "Rwanda": "UTC+2", "Sao Tome and Principe": "UTC", "Senegal": "UTC", "Seychelles": "UTC+4",
-  "Sierra Leone": "UTC", "Somalia": "UTC+3", "South Africa": "UTC+2", "South Sudan": "UTC+2", "Sudan": "UTC+2", "Tanzania": "UTC+3",
-  "Togo": "UTC", "Tunisia": "UTC+1", "Uganda": "UTC+3", "Zambia": "UTC+2", "Zimbabwe": "UTC+2"
+  "Nigeria": "UTC+1", "Kenya": "UTC+3", "South Africa": "UTC+2", "Ghana": "UTC", "Rwanda": "UTC+2", "Egypt": "UTC+2"
 };
 
 const utcOffsets = Array.from({ length: 27 }, (_, i) => {
@@ -42,24 +24,26 @@ const RegisterPage = () => {
   const location = useLocation();
   const [loading, setLoading] = useState(false);
   
-  // DEFAULT TO FA FOR THE CLONE
   const program = location.state?.program || 'FA';
-  const cohort = location.state?.cohort || 'Cohort 1';
   const connectionType = location.state?.connectionType || 'find';
 
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', country: '', timezone: '', language: '',
-    open_to_global_pairing: 'No', 
+    open_to_global_pairing: connectionType === 'offer' || connectionType === 'cofounder' ? 'Yes' : 'No', 
     topic_module: '', 
     learning_preferences: '', availability: '', preferred_study_setup: '2', 
-    kind_of_support: '', disclaimer_agree: false
+    kind_of_support: '', disclaimer_agree: false,
+    capacity: '3',
+    meeting_preference: 'All',
+    // NEW CO-FOUNDER FIELDS
+    cofounder_role: 'looking', 
+    skill_type: '', skill_level: '', equity_type: ''
   });
 
   const handleChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     const name = e.target.name;
 
-    // Auto-fill timezone when country changes
     if (name === 'country') {
         if (value === 'Non-African') {
             setFormData({ ...formData, country: value, timezone: '' });
@@ -72,27 +56,15 @@ const RegisterPage = () => {
     }
   };
 
-  // --- NEW MODULE LOGIC FOR FA AND FLA ---
-  const getModules = () => {
-    if (program === 'FA') return [
-        "Phase 1: Ideation & Validation", 
-        "Phase 2: Business Models", 
-        "Phase 3: Go-to-Market Strategy", 
-        "Phase 4: Pitching & Funding"
-    ];
-    if (program === 'FLA') return [
-        "Week 1: Setting up your Profile", 
-        "Week 2: Finding Clients", 
-        "Week 3: Pricing your Services", 
-        "Week 4: Delivering Excellence"
-    ];
-    return ["General Module"];
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const payload = { ...formData, program, cohort, connection_type: connectionType };
+    // Force Cohort 4 for FA & FLA
+    const payload = { ...formData, program: program, cohort: 'Cohort 4', connection_type: connectionType };
+    
+    if (connectionType === 'offer' || connectionType === 'cofounder') payload.open_to_global_pairing = 'Yes';
+    if (connectionType !== 'offer' && connectionType !== 'cofounder') payload.capacity = 'None'; 
+
     try {
       const response = await axios.post(`${API_URL}/api/register`, payload);
       if (response.data.success || response.data.user_id) {
@@ -106,37 +78,102 @@ const RegisterPage = () => {
     <div style={styles.container}>
       <button style={styles.backBtn} onClick={() => navigate('/')}>&larr; Back</button>
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={styles.card}>
-        <h2 style={styles.header}>Register for {program} ({cohort})</h2>
-        <p style={{textAlign:'center', marginBottom:'15px', color: '#666'}}>Looking for: <strong>{connectionType === 'find' ? 'Study Buddy' : connectionType}</strong></p>
-
-        <div style={styles.warningBox}>
-          <h3 style={styles.warningTitle}>⚠️ Please Read Carefully</h3>
-          <ul style={styles.warningList}>
-            <li>Show up for your partner — ghosting is discouraged.</li>
-            <li>Provide accurate info only.</li>
-            <li>Feel free to opt out at any time.</li>
-            <li>Peer support is labelled as informal.</li>
-             <li>Volunteers are here to support, not replace official facilitators/instructors.</li>
-          </ul>
-        </div>
+        <h2 style={styles.header}>Register for {program} (Cohort 4)</h2>
+        <p style={{textAlign:'center', marginBottom:'15px', color: '#666'}}>
+            Path: <strong>{connectionType === 'cofounder' ? 'Co-Founder Matchmaker' : connectionType === 'find' ? 'Study Buddy' : connectionType === 'offer' ? 'Offer Support' : 'Request Support'}</strong>
+        </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
+           
+           {/* --- CO-FOUNDER SPECIFIC FIELDS --- */}
+           {connectionType === 'cofounder' && (
+              <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '10px', border: '1px solid #ddd', marginBottom: '15px' }}>
+                 <h3 style={{ marginTop: 0, color: colors.primary.berkeleyBlue }}>Startup Profile</h3>
+                 
+                 <label style={styles.label}>What is your objective?</label>
+                 <select style={{...styles.select, marginBottom: '15px'}} name="cofounder_role" onChange={handleChange} required value={formData.cofounder_role}>
+                     <option value="looking">I am looking for a Co-Founder</option>
+                     <option value="offering">I want to be a Co-Founder</option>
+                 </select>
+
+                 <div style={styles.row}>
+                    <div style={styles.half}>
+                        <label style={styles.label}>{formData.cofounder_role === 'looking' ? "Skill Needed" : "Your Primary Skill"}</label>
+                        <select style={styles.select} name="skill_type" onChange={handleChange} required value={formData.skill_type}>
+                            <option value="">--Select Skill--</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Backend Developer">Backend Developer</option>
+                            <option value="Frontend Developer">Frontend Developer</option>
+                            <option value="Accountant">Accountant</option>
+                            <option value="Legal Associate">Legal Associate</option>
+                            <option value="Fundraiser">Fundraiser</option>
+                            <option value="Project Manager">Project Manager</option>
+                            <option value="Supply Chain">Supply Chain</option>
+                        </select>
+                    </div>
+                    <div style={styles.half}>
+                        <label style={styles.label}>Experience Level</label>
+                        <select style={styles.select} name="skill_level" onChange={handleChange} required value={formData.skill_level}>
+                            <option value="">--Select Level--</option>
+                            <option value="Entry 0-2 years">Entry 0-2 years</option>
+                            <option value="Midlevel 2-5 years">Midlevel 2-5 years</option>
+                            <option value="Experienced 5+ years">Experienced 5+ years</option>
+                            <option value="Expert 12+ years">Expert 12+ years</option>
+                        </select>
+                    </div>
+                 </div>
+
+                 <div style={{...styles.row, marginTop: '15px'}}>
+                    <div style={styles.half}>
+                        <label style={styles.label}>Compensation / Equity</label>
+                        <select style={styles.select} name="equity_type" onChange={handleChange} required value={formData.equity_type}>
+                            <option value="">--Select Option--</option>
+                            <option value="Vesting">Vesting</option>
+                            <option value="Offer Salary">Offer Salary</option>
+                            <option value="Offer Equity">Offer Equity</option>
+                            <option value="Can't offer any">Can't offer any</option>
+                            <option value="Flexible">Flexible</option>
+                        </select>
+                    </div>
+                    {formData.cofounder_role === 'looking' && (
+                        <div style={styles.half}>
+                            <label style={styles.label}>How many do you need?</label>
+                            <select style={styles.select} name="capacity" onChange={handleChange} required value={formData.capacity}>
+                                <option value="1">1 Co-Founder</option>
+                                <option value="2">2 Co-Founders</option>
+                                <option value="3">3+ Co-Founders</option>
+                            </select>
+                        </div>
+                    )}
+                 </div>
+              </div>
+           )}
+
+           {/* --- STANDARD FIELDS --- */}
            <div style={styles.row}>
              <div style={styles.half}><label style={styles.label}>Full Name</label><input style={styles.input} name="name" onChange={handleChange} required /></div>
-             <div style={styles.half}><label style={styles.label}>Email (ALX Registered)</label><input style={styles.input} name="email" type="email" onChange={handleChange} required /></div>
+             <div style={styles.half}><label style={styles.label}>Program</label>
+                <select style={styles.select} name="program" onChange={(e) => {
+                    navigate('.', { state: { ...location.state, program: e.target.value }});
+                }} required value={program}>
+                    <option value="FA">Founders Academy (FA)</option>
+                    <option value="FLA">Freelance Academy (FLA)</option>
+                </select>
+             </div>
            </div>
-           
-           <label style={styles.label}>Phone Number (WhatsApp)</label>
-           <input style={styles.input} name="phone" type="tel" placeholder="+123..." onChange={handleChange} required />
+
+           <div style={styles.row}>
+             <div style={styles.half}><label style={styles.label}>Email (ALX Registered)</label><input style={styles.input} name="email" type="email" onChange={handleChange} required /></div>
+             <div style={styles.half}><label style={styles.label}>Phone (WhatsApp/Telegram)</label><input style={styles.input} name="phone" type="tel" placeholder="+123..." onChange={handleChange} required /></div>
+           </div>
 
            <div style={styles.row}>
               <div style={styles.half}>
                   <label style={styles.label}>Country</label>
                   <select style={styles.select} name="country" onChange={handleChange} required>
                       <option value="">--Select--</option>
-                      {africanCountries.map(country => (
-                        <option key={country} value={country}>{country}</option>
-                      ))}
+                      {africanCountries.map(country => (<option key={country} value={country}>{country}</option>))}
                   </select>
               </div>
               <div style={styles.half}>
@@ -144,26 +181,13 @@ const RegisterPage = () => {
                   {formData.country === 'Non-African' ? (
                       <div style={styles.tzWrapper}>
                           <span style={{ fontWeight: 'bold', color: '#555' }}>UTC</span>
-                          <select 
-                              style={styles.tzSelect} 
-                              name="timezone" 
-                              onChange={handleChange} 
-                              required 
-                              value={formData.timezone}
-                          >
+                          <select style={styles.tzSelect} name="timezone" onChange={handleChange} required value={formData.timezone}>
                               <option value="">--</option>
                               {utcOffsets.map(off => <option key={off} value={`UTC${off}`}>{off}</option>)}
                           </select>
                       </div>
                   ) : (
-                      <input 
-                          style={{...styles.input, backgroundColor: '#f5f5f5', color: '#888', cursor: 'not-allowed'}} 
-                          name="timezone" 
-                          value={formData.timezone} 
-                          readOnly 
-                          placeholder="Auto-filled by country" 
-                          required 
-                      />
+                      <input style={{...styles.input, backgroundColor: '#f5f5f5', color: '#888', cursor: 'not-allowed'}} name="timezone" value={formData.timezone} readOnly placeholder="Auto-filled by country" required />
                   )}
               </div>
            </div>
@@ -172,7 +196,11 @@ const RegisterPage = () => {
              <div style={styles.half}>
                   <label style={styles.label}>Language</label>
                   <select style={styles.select} name="language" onChange={handleChange} required>
-                      <option value="">--Select--</option><option value="English">English</option><option value="French">French</option><option value="Arabic">Arabic</option>
+                      <option value="">--Select--</option>
+                      <option value="English">English</option>
+                      <option value="French">French</option>
+                      <option value="Arabic">Arabic</option>
+                      <option value="Amharic">Amharic</option> 
                   </select>
               </div>
              <div style={styles.half}>
@@ -183,42 +211,58 @@ const RegisterPage = () => {
              </div>
            </div>
 
-           <div style={styles.row}>
-             <div style={styles.half}>
-                <label style={styles.label}>Current Phase/Module</label>
-                <select style={styles.select} name="topic_module" onChange={handleChange} required value={formData.topic_module}>
-                    <option value="">--Select--</option>
-                    {getModules().map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-             </div>
-             <div style={styles.half}>
-                <label style={styles.label}>Learning Preference</label>
-                <select style={styles.select} name="learning_preferences" onChange={handleChange} required value={formData.learning_preferences}>
-                    <option value="">--Select--</option>
-                    <option value="Deep dive">Deep dive</option>
-                    <option value="Co-work sessions">Co-work sessions</option>
-                    <option value="General program navigation">General program navigation</option>
-                    <option value="Flexible">Flexible</option>
-                </select>
-             </div>
-           </div>
+           {/* --- NON-COFOUNDER ACADEMIC PREFERENCES --- */}
+           {connectionType !== 'cofounder' && (
+               <div style={styles.row}>
+                 <div style={styles.half}>
+                    <label style={styles.label}>Current Module/Assignment</label>
+                    <input style={styles.input} name="topic_module" placeholder="e.g. Marketing Quiz" onChange={handleChange} required />
+                 </div>
+                 <div style={styles.half}>
+                    <label style={styles.label}>Why should I connect with someone?</label>
+                    <select style={styles.select} name="learning_preferences" onChange={handleChange} required value={formData.learning_preferences}>
+                        <option value="">--Select Reason--</option>
+                        <option value="Deep dive discussion">Deep dive discussion</option>
+                        <option value="Feedback and idea review">Feedback and idea review</option>
+                        <option value="Co-working / accountability sessions">Co-working / accountability sessions</option>
+                        <option value="Learning check-ins">Learning check-ins</option>
+                        <option value="Flexible">Flexible</option>
+                    </select>
+                 </div>
+               </div>
+           )}
 
            <div>
-             <label style={styles.label}>Open to Global Pairing?</label>
-             <select 
-                style={styles.select} 
-                name="open_to_global_pairing" 
-                onChange={handleChange} 
-                required 
-                value={formData.open_to_global_pairing}
-             >
-                <option value="No">No - Match within my Country/Module/Availability</option>
-                <option value="Yes">Yes - Match me with anyone (Faster)</option>
-             </select>
-             <p style={{fontSize:'0.8rem', color:'#666', marginTop:'5px', marginBottom:'15px'}}>
-                *Select 'Yes' to relax constraints and find a match faster.
-             </p>
+              <label style={styles.label}>Preferred Meeting Method</label>
+              <select style={styles.select} name="meeting_preference" onChange={handleChange} required value={formData.meeting_preference}>
+                  <option value="All">Any / All</option>
+                  <option value="Google Meet">Google Meet / Video</option>
+                  <option value="Zoom">Zoom</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="Telegram">Telegram</option>
+              </select>
            </div>
+
+           {connectionType === 'offer' ? (
+              <div>
+                <label style={styles.label}>How many peers can you support? (Globally matched)</label>
+                <select style={styles.select} name="capacity" onChange={handleChange} required value={formData.capacity}>
+                    <option value="3">Up to 3 Learners</option>
+                    <option value="5">Up to 5 Learners</option>
+                    <option value="7">Up to 7 Learners</option>
+                    <option value="10">Up to 10 Learners</option>
+                </select>
+              </div>
+           ) : connectionType !== 'cofounder' ? (
+              <div>
+                <label style={styles.label}>Where do you want to match?</label>
+                <select style={styles.select} name="open_to_global_pairing" onChange={handleChange} required value={formData.open_to_global_pairing}>
+                   <option value="No">Match me within my Country</option>
+                   <option value="Timezone">Match me within my Time Zone (±3 hours)</option>
+                   <option value="Yes">Match me with anyone globally (Fastest)</option>
+                </select>
+              </div>
+           ) : null}
 
            {connectionType === 'find' && (
              <div>
@@ -230,8 +274,8 @@ const RegisterPage = () => {
              </div>
            )}
            
-           {connectionType !== 'find' && (
-             <div><label style={styles.label}>Support Type</label><select style={styles.select} name="kind_of_support" onChange={handleChange} required><option value="">--Select--</option><option value="Content Explanation">Content Explanation</option><option value="Test or Milestone clarification">Test or Milestone clarification</option><option value="Full support">Full support</option></select></div>
+           {connectionType === 'need' && (
+             <div><label style={styles.label}>Support Type</label><select style={styles.select} name="kind_of_support" onChange={handleChange} required><option value="">--Select--</option><option value="Assignment Clarification">Assignment Clarification</option><option value="Technical Issue">Technical Issue</option><option value="Full support">Full support</option></select></div>
            )}
 
            <div style={styles.checkboxContainer}>
@@ -242,7 +286,7 @@ const RegisterPage = () => {
            </div>
 
            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" style={styles.submitButton} disabled={loading}>
-              {loading ? <div style={{display:'flex', gap:'10px', justifyContent:'center'}}><Spinner size="20px" /> Processing...</div> : "Submit Request 🚀"}
+              {loading ? <div style={{display:'flex', gap:'10px', justifyContent:'center'}}><Spinner size="20px" color="white" /> Processing...</div> : "Submit Request 🚀"}
            </motion.button>
         </form>
       </motion.div>
