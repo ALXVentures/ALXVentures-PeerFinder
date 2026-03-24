@@ -14,26 +14,17 @@ const AdminPage = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [programFilter, setProgramFilter] = useState("All");
 
-  // Selection State
   const [selectedIds, setSelectedIds] = useState([]);
-
-  // NEW: Pagination State for Groups
   const [currentGroupPage, setCurrentGroupPage] = useState(1);
   const groupsPerPage = 21; 
-
-  // Modal State
   const [modal, setModal] = useState({ isOpen: false, type: null, title: '', message: '', isSuccess: false, action: null });
 
-  // --- LOGIN ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const res = await axios.post(`${API_URL}/api/admin/data`, { password });
-      if (res.data.success) {
-        setData(res.data);
-        setIsAuthenticated(true);
-      }
+      if (res.data.success) { setData(res.data); setIsAuthenticated(true); }
     } catch (err) { alert("Login Failed"); } 
     finally { setLoading(false); }
   };
@@ -41,18 +32,8 @@ const AdminPage = () => {
   const refreshData = async () => {
     try {
       const res = await axios.post(`${API_URL}/api/admin/data`, { password });
-      setData(res.data);
-      setSelectedIds([]); 
+      setData(res.data); setSelectedIds([]); 
     } catch (err) { console.error(err); }
-  };
-
-  // --- ACTIONS ---
-  const initiateRandomPair = (userId, userName) => {
-    setModal({
-      isOpen: true, type: 'confirm', title: 'Confirm Random Pairing',
-      message: `Pair ${userName} with ANY available learner matching their group preference?`,
-      action: () => executePairing('random-pair', { user_id: userId })
-    });
   };
 
   const initiateManualPair = () => {
@@ -90,29 +71,13 @@ const AdminPage = () => {
     if (success) refreshData();
   };
 
-  const closeModal = () => setModal({ ...modal, isOpen: false });
   const toggleSelection = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
-  // --- DOWNLOADS ---
   const downloadCSV = async () => {
     try {
       const res = await axios.post(`${API_URL}/api/admin/download`, { password }, { responseType: 'blob' });
-      triggerDownload(res.data, 'fa_fla_peer_data.csv');
+      triggerDownload(res.data, 'ventures_peerfinder_data.csv');
     } catch (err) { alert("Download failed"); }
-  };
-
-  const downloadFeedback = async () => {
-    try {
-      const res = await axios.post(`${API_URL}/api/admin/download-feedback`, { password }, { responseType: 'blob' });
-      triggerDownload(res.data, 'fa_fla_feedback.csv');
-    } catch (err) { alert("Feedback download failed"); }
-  };
-
-  const downloadSessionFeedback = async () => {
-    try {
-      const res = await axios.post(`${API_URL}/api/admin/download-session-feedback`, { password }, { responseType: 'blob' });
-      triggerDownload(res.data, 'fa_fla_session_feedback.csv');
-    } catch (err) { alert("Session Feedback download failed"); }
   };
 
   const triggerDownload = (data, filename) => {
@@ -122,7 +87,6 @@ const AdminPage = () => {
     document.body.appendChild(link); link.click();
   };
 
-  // --- DATA PROCESSING ---
   const getDaysSince = (dateStr) => {
     if (!dateStr) return 0;
     return Math.floor((new Date() - new Date(dateStr)) / (1000 * 60 * 60 * 24));
@@ -130,12 +94,11 @@ const AdminPage = () => {
 
   if (!isAuthenticated) return <LoginScreen handleLogin={handleLogin} password={password} setPassword={setPassword} loading={loading} />;
 
-  // Filter Data
   const programLearners = data.learners.filter(l => programFilter === "All" || l.program === programFilter);
   
   const unpairedList = programLearners
     .filter(l => !l.matched)
-    .filter(l => l.name.toLowerCase().includes(filterText.toLowerCase()) || l.cohort.toLowerCase().includes(filterText.toLowerCase()))
+    .filter(l => l.name.toLowerCase().includes(filterText.toLowerCase()) || l.email.toLowerCase().includes(filterText.toLowerCase()) || l.cohort.toLowerCase().includes(filterText.toLowerCase()))
     .sort((a, b) => getDaysSince(b.timestamp) - getDaysSince(a.timestamp));
 
   const matchedGroups = programLearners.reduce((acc, curr) => {
@@ -146,13 +109,14 @@ const AdminPage = () => {
     return acc;
   }, {});
 
-  // NEW: Pagination Logic for Matches Tab
-  const matchedGroupsArray = Object.entries(matchedGroups);
-  const totalGroupPages = Math.ceil(matchedGroupsArray.length / groupsPerPage);
-  const paginatedGroups = matchedGroupsArray.slice(
-    (currentGroupPage - 1) * groupsPerPage, 
-    currentGroupPage * groupsPerPage
-  );
+  const filteredGroupsArray = Object.entries(matchedGroups).filter(([groupId, members]) => {
+      if (!filterText) return true;
+      const lowerFilter = filterText.toLowerCase();
+      return members.some(m => m.name.toLowerCase().includes(lowerFilter) || m.email.toLowerCase().includes(lowerFilter));
+  });
+
+  const totalGroupPages = Math.ceil(filteredGroupsArray.length / groupsPerPage);
+  const paginatedGroups = filteredGroupsArray.slice((currentGroupPage - 1) * groupsPerPage, currentGroupPage * groupsPerPage);
 
   // Chart Data
   const cohorts = {}; const countries = {}; const daysUnpaired = {};
@@ -166,7 +130,6 @@ const AdminPage = () => {
     }
   });
 
-  // Calculate Match Rate & Pending for current filter
   const totalInView = programLearners.length;
   const matchedInView = programLearners.filter(l => l.matched).length;
   const pendingInView = totalInView - matchedInView;
@@ -177,38 +140,32 @@ const AdminPage = () => {
       <div style={styles.topBar}>
         <div style={{display:'flex', alignItems:'center', gap:'15px'}}>
             <h1 style={{color: 'white', margin: 0}}>Admin</h1>
-            <select 
-              value={programFilter} 
-              onChange={e => { setProgramFilter(e.target.value); setCurrentGroupPage(1); }} 
-              style={styles.programSelect}
-            >
-                <option value="All">All Programs</option>
-                <option value="FA">Founder Academy (FA)</option>
-                <option value="FLA">Freelance Academy (FLA)</option>
+            <select value={programFilter} onChange={e => { setProgramFilter(e.target.value); setCurrentGroupPage(1); }} style={styles.programSelect}>
+                <option value="All">All Programs</option><option value="FA">FA</option><option value="FLA">FLA</option>
             </select>
         </div>
         <div style={{display:'flex', gap:'10px'}}>
             <button onClick={downloadCSV} style={styles.btnSecondary}>📥 Data</button>
-            <button onClick={downloadFeedback} style={{...styles.btnSecondary, background: colors.secondary.tomato, color:'white'}}>📥 Feedback</button>
-            <button onClick={downloadSessionFeedback} style={{...styles.btnSecondary, background: colors.primary.springGreen, color: colors.primary.berkeleyBlue}}>📥 Session Feedback</button>
         </div>
       </div>
 
       <div style={styles.tabs}>
         <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} label="Analytics" />
         <TabButton active={activeTab === 'unpaired'} onClick={() => setActiveTab('unpaired')} label={`Unpaired (${unpairedList.length})`} />
-        <TabButton active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} label={`Active Groups (${matchedGroupsArray.length})`} />
+        <TabButton active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} label={`Active Groups (${filteredGroupsArray.length})`} />
       </div>
 
       <div style={styles.contentArea}>
         {activeTab === 'dashboard' && (
           <div>
             <div style={styles.statsGrid}>
-                <StatCard title="Total Learners" value={totalInView} color={colors.primary.iris} />
-                <StatCard title="Match Rate" value={matchRate} sub={`(${matchedInView} matched)`} color={colors.primary.springGreen} />
-                <StatCard title="Pending / Waiting" value={pendingInView} color={colors.secondary.gold} />
-                <StatCard title="Offer Support" value={programLearners.filter(l => l.connection_type === 'offer').length} color="#FF9800" />
-                <StatCard title="Need Support" value={programLearners.filter(l => l.connection_type === 'need').length} color={colors.secondary.tomato} />
+                <StatCard title="Total Learners" value={totalInView} color={colors.primary.iris} emoji="👥" />
+                <StatCard title="Match Rate" value={matchRate} sub={`(${matchedInView})`} color={colors.primary.springGreen} emoji="🎯" />
+                <StatCard title="Pending Queue" value={pendingInView} color={colors.secondary.gold} emoji="⏳" />
+                <StatCard title="Match Speed" value={data?.stats?.match_speed || 'N/A'} color="#17a2b8" emoji="🏎️" />
+                <StatCard title="Overall Rating" value={data?.stats?.tool_rating || 'N/A'} color="#e83e8c" emoji="⭐" />
+                <StatCard title="Unpaired Needs" value={unpairedList.filter(l => l.connection_type === 'need').length} color={colors.secondary.tomato} emoji="🆘" />
+                <StatCard title="Unpaired Vols" value={unpairedList.filter(l => l.connection_type === 'offer').length} color="#FF9800" emoji="🌟" />
             </div>
             <div style={styles.chartsGrid}>
                 <ChartBox title="By Cohort" data={cohorts} color={colors.primary.iris} />
@@ -221,7 +178,7 @@ const AdminPage = () => {
         {activeTab === 'unpaired' && (
           <div>
             <div style={styles.filterBar}>
-              <input placeholder="Search..." style={styles.filterInput} value={filterText} onChange={e => setFilterText(e.target.value)} />
+              <input placeholder="Search by name or email..." style={styles.filterInput} value={filterText} onChange={e => setFilterText(e.target.value)} />
               <AnimatePresence>
                 {selectedIds.length >= 2 && (
                   <motion.button initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} style={styles.fab} onClick={initiateManualPair}>
@@ -232,7 +189,9 @@ const AdminPage = () => {
             </div>
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
-                <thead><tr><th>Select</th><th>Days</th><th>Name</th><th>Country</th><th>Program</th><th>Cohort</th><th>Request</th><th>Actions</th></tr></thead>
+                <thead>
+                  <tr><th>Select</th><th>Days</th><th>Name</th><th>Country</th><th>Time Zone</th><th>Program</th><th>Cohort</th><th>Request</th><th>Capacity</th></tr>
+                </thead>
                 <tbody>
                   {unpairedList.map(l => (
                     <tr key={l.id} style={selectedIds.includes(l.id) ? styles.trSelected : styles.tr}>
@@ -240,9 +199,10 @@ const AdminPage = () => {
                       <td><span style={styles.badge}>{getDaysSince(l.timestamp)}d</span></td>
                       <td><strong>{l.name}</strong><br/><span style={styles.subText}>{l.email}</span></td>
                       <td>{l.country || '-'}</td>
+                      <td>{l.timezone || '-'}</td>
                       <td>{l.program}</td><td>{l.cohort}</td>
-                      <td>{l.connection_type} ({l.preferred_study_setup || 'Any'})</td>
-                      <td><button style={styles.btnSmall} onClick={() => initiateRandomPair(l.id, l.name)}>Random 🎲</button></td>
+                      <td>{l.connection_type === 'cofounder' ? `Co-Founder (${l.skill_type || 'N/A'})` : l.connection_type.toUpperCase()}</td>
+                      <td>{l.capacity !== 'None' ? l.capacity : '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -253,17 +213,23 @@ const AdminPage = () => {
 
         {activeTab === 'matches' && (
           <div>
+            <div style={styles.filterBar}>
+              <input placeholder="Search groups by learner name or email..." style={styles.filterInput} value={filterText} onChange={e => {setFilterText(e.target.value); setCurrentGroupPage(1);}} />
+            </div>
             <div style={styles.groupsGrid}>
               {paginatedGroups.map(([groupId, members]) => (
                 <div key={groupId} style={styles.groupCard}>
                   <div style={styles.groupHeader}>
-                    <span style={{fontWeight:'bold', color: colors.primary.berkeleyBlue}}>{members[0].program} Group ({members.length})</span>
-                    <button style={styles.btnUnpair} onClick={() => initiateUnpairGroup(members[0].id, members[0].name + "'s Group")}>Unpair 🚫</button>
+                    <span style={{fontWeight:'bold', color: colors.primary.berkeleyBlue}}>Group ({members.length})</span>
+                    <button style={styles.btnUnpair} onClick={() => initiateUnpairGroup(members[0].id, "This Group")}>Unpair 🚫</button>
                   </div>
                   <div style={styles.groupMembers}>
                     {members.map(m => (
                       <div key={m.id} style={styles.memberChip}>
-                        <span style={{fontWeight:'bold'}}>{m.name}</span> <span style={styles.subText}>{m.email}</span>
+                        <span style={{fontWeight:'bold'}}>{m.name}</span> <span style={styles.subText}>| {m.email}</span><br/>
+                        <span style={{fontSize:'0.8rem', color: colors.primary.iris}}>
+                          Role: <strong>{m.connection_type === 'cofounder' ? 'Co-Founder' : m.connection_type.toUpperCase()}</strong> | Prog: {m.program} | Prefers: <strong>{m.meeting_preference || 'All'}</strong>
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -271,24 +237,11 @@ const AdminPage = () => {
               ))}
             </div>
 
-            {/* Pagination Controls */}
             {totalGroupPages > 1 && (
               <div style={styles.paginationContainer}>
-                <button 
-                  style={currentGroupPage === 1 ? styles.pageBtnDisabled : styles.pageBtn} 
-                  disabled={currentGroupPage === 1} 
-                  onClick={() => setCurrentGroupPage(p => p - 1)}
-                >
-                  &larr; Previous
-                </button>
+                <button style={currentGroupPage === 1 ? styles.pageBtnDisabled : styles.pageBtn} disabled={currentGroupPage === 1} onClick={() => setCurrentGroupPage(p => p - 1)}>&larr; Previous</button>
                 <span style={styles.pageText}>Page {currentGroupPage} of {totalGroupPages}</span>
-                <button 
-                  style={currentGroupPage === totalGroupPages ? styles.pageBtnDisabled : styles.pageBtn} 
-                  disabled={currentGroupPage === totalGroupPages} 
-                  onClick={() => setCurrentGroupPage(p => p + 1)}
-                >
-                  Next &rarr;
-                </button>
+                <button style={currentGroupPage === totalGroupPages ? styles.pageBtnDisabled : styles.pageBtn} disabled={currentGroupPage === totalGroupPages} onClick={() => setCurrentGroupPage(p => p + 1)}>Next &rarr;</button>
               </div>
             )}
           </div>
@@ -304,10 +257,10 @@ const AdminPage = () => {
               <div style={styles.modalActions}>
                 {modal.type === 'confirm' ? (
                   <>
-                    <button onClick={closeModal} style={styles.btnCancel}>Cancel</button>
+                    <button onClick={() => setModal({isOpen: false})} style={styles.btnCancel}>Cancel</button>
                     <button onClick={modal.action} style={styles.btnConfirm}>Yes, Proceed</button>
                   </>
-                ) : <button onClick={closeModal} style={styles.btnConfirm}>Close</button>}
+                ) : <button onClick={() => setModal({isOpen: false})} style={styles.btnConfirm}>Close</button>}
               </div>
             </motion.div>
           </div>
@@ -323,7 +276,9 @@ const LoginScreen = ({ handleLogin, password, setPassword, loading }) => (
       <h2>Admin Access</h2>
       <form onSubmit={handleLogin}>
         <input type="password" style={styles.input} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" />
-        <button style={styles.btnPrimary} disabled={loading}>{loading ? <Spinner/> : "Login"}</button>
+        <button style={styles.btnPrimary} disabled={loading}>
+            {loading ? <div style={{display:'flex', justifyContent:'center'}}><Spinner size="20px" color="white" /></div> : "Login"}
+        </button>
       </form>
     </div>
   </div>
@@ -333,11 +288,13 @@ const TabButton = ({ active, onClick, label }) => (
   <button style={active ? styles.activeTab : styles.tab} onClick={onClick}>{label}</button>
 );
 
-const StatCard = ({ title, value, sub, color }) => (
+const StatCard = ({ title, value, sub, color, emoji }) => (
   <div style={{...styles.statCard, borderLeft: `5px solid ${color}`}}>
-    <div style={{fontSize:'0.9rem', color:'#666'}}>{title}</div>
-    <div style={{fontSize:'1.8rem', fontWeight:'bold', color}}>
-      {value} <span style={{fontSize:'0.9rem', color:'#888', fontWeight:'normal'}}>{sub}</span>
+    <div style={{fontSize:'0.9rem', color:'#666', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+      {title} <span style={{fontSize:'1.2rem'}}>{emoji}</span>
+    </div>
+    <div style={{fontSize:'1.8rem', fontWeight:'bold', color: color, marginTop:'5px'}}>
+      {value} {sub && <span style={{fontSize:'0.9rem', color:'#888', fontWeight:'normal'}}>{sub}</span>}
     </div>
   </div>
 );
@@ -366,30 +323,33 @@ const ChartBox = ({ title, data, color, wide }) => {
 
 const styles = {
   centerContainer: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f2f5' },
-  card: { background: 'white', padding: '2rem', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center' },
+  card: { background: 'white', padding: '2rem', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', textAlign: 'center', width:'100%', maxWidth:'400px' },
   dashboardContainer: { minHeight: '100vh', background: '#f4f6f8', fontFamily: fonts.main },
   topBar: { background: colors.primary.berkeleyBlue, padding: '1rem 2rem', color: 'white', display:'flex', justifyContent:'space-between' },
   programSelect: { padding: '5px', borderRadius: '5px', marginLeft: '10px' },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '20px', padding: '20px' },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', padding: '20px 0' },
   statCard: { background: 'white', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' },
   tabs: { padding: '0 20px', display: 'flex', gap: '10px', borderBottom: '1px solid #ddd' },
   tab: { padding: '10px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#666', fontSize: '1rem' },
   activeTab: { padding: '10px 20px', background: 'white', borderBottom: `3px solid ${colors.primary.iris}`, fontWeight: 'bold', cursor: 'pointer' },
   contentArea: { padding: '20px' },
-  chartsGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' },
+  chartsGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' },
   chartBox: { background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' },
   chartContainer: { marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' },
   barWrapper: { display: 'flex', alignItems: 'center', fontSize: '0.9rem' },
-  barLabel: { width: '100px', textAlign: 'right', marginRight: '10px', fontWeight: 'bold', color: '#555' },
+  barLabel: { width: '100px', textAlign: 'right', marginRight: '10px', fontWeight: 'bold', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   barTrack: { flex: 1, background: '#f0f0f0', borderRadius: '4px', height: '24px', position: 'relative' },
   barFill: { height: '100%', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '5px' },
   barValue: { color: 'white', fontSize: '0.8rem', fontWeight: 'bold' },
+  filterBar: { display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems:'center' },
+  filterInput: { padding: '10px', width: '300px', borderRadius: '5px', border: '1px solid #ddd' },
   tableWrapper: { background: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' },
   table: { width: '100%', borderCollapse: 'collapse' },
   tr: { borderBottom: '1px solid #eee' },
   trSelected: { background: '#e3f2fd', borderBottom: '1px solid #eee' },
   subText: { fontSize: '0.8rem', color: '#666' },
-  btnPrimary: { padding: '10px 20px', background: colors.primary.iris, color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' },
+  input: { padding: '12px', width: '100%', marginBottom: '15px', borderRadius: '5px', border: '1px solid #ccc', boxSizing:'border-box' },
+  btnPrimary: { padding: '12px 20px', width:'100%', background: colors.primary.iris, color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight:'bold' },
   btnSecondary: { padding: '8px 16px', background: 'white', color: colors.primary.berkeleyBlue, border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' },
   btnSmall: { padding: '5px 10px', background: '#eee', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', fontSize:'0.8rem' },
   btnUnpair: { padding: '5px 10px', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', borderRadius: '4px', cursor: 'pointer', fontSize:'0.8rem', fontWeight:'bold' },
@@ -399,16 +359,12 @@ const styles = {
   groupHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #f0f0f0' },
   groupMembers: { display: 'flex', flexDirection: 'column', gap: '8px' },
   memberChip: { padding: '8px', background: '#f9f9f9', borderRadius: '6px', fontSize: '0.9rem' },
-  input: { padding: '10px', width: '100%', marginBottom: '15px', borderRadius: '5px', border: '1px solid #ccc' },
-  filterInput: { padding: '10px', width: '300px', marginBottom: '15px', borderRadius: '5px', border: '1px solid #ddd' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
   modalContent: { background: 'white', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '400px', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' },
   modalActions: { display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px' },
   btnConfirm: { padding: '8px 20px', background: colors.primary.iris, color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight:'bold' },
   btnCancel: { padding: '8px 20px', background: '#ccc', color: '#333', border: 'none', borderRadius: '5px', cursor: 'pointer' },
   badge: { background: '#fff3e0', color: '#e65100', padding: '3px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' },
-  
-  // NEW PAGINATION STYLES
   paginationContainer: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '30px', padding: '10px' },
   pageBtn: { padding: '8px 16px', background: 'white', border: `1px solid ${colors.primary.iris}`, color: colors.primary.iris, borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' },
   pageBtnDisabled: { padding: '8px 16px', background: '#f0f0f0', border: '1px solid #ddd', color: '#aaa', borderRadius: '5px', cursor: 'not-allowed' },
