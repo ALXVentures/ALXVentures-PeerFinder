@@ -35,7 +35,7 @@ const RegisterPage = () => {
     kind_of_support: '', disclaimer_agree: false,
     capacity: '3',
     meeting_preference: 'All',
-    // NEW CO-FOUNDER FIELDS
+    // CO-FOUNDER FIELDS
     cofounder_role: 'looking', 
     skill_type: '', skill_level: '', equity_type: ''
   });
@@ -215,8 +215,16 @@ const RegisterPage = () => {
            {connectionType !== 'cofounder' && (
                <div style={styles.row}>
                  <div style={styles.half}>
-                    <label style={styles.label}>Current Module/Assignment</label>
-                    <input style={styles.input} name="topic_module" placeholder="e.g. Marketing Quiz" onChange={handleChange} required />
+                    <label style={styles.label}>Where are you in your learning journey?</label>
+                    <select style={styles.select} name="topic_module" onChange={handleChange} required value={formData.topic_module}>
+                        <option value="">--Select Phase--</option>
+                        <option value="Pre-Venture: I haven’t started yet.">Pre-Venture: I haven’t started yet.</option>
+                        <option value="Idea Validation: I am figuring out my idea, purpose, and problem by talking to customers and understanding their pain.">Idea Validation: I am figuring out my idea, purpose, and problem by talking to customers and understanding their pain.</option>
+                        <option value="Business Model Validation: I am defining my business model, revenue streams, and pricing strategy.">Business Model Validation: I am defining my business model, revenue streams, and pricing strategy.</option>
+                        <option value="MVP Building & Feedback: I have validated my idea and business model; I am now building, testing, and refining my first prototype.">MVP Building & Feedback: I have validated my idea and business model; I am now building, testing, and refining my first prototype.</option>
+                        <option value="GTM Strategy & Startup Operations: I have built my MVP and I am actively working to secure my first paying customers.">GTM Strategy & Startup Operations: I have built my MVP and I am actively working to secure my first paying customers.</option>
+                        <option value="Investor Readiness: I have secured paying customers and I am now preparing my pitch and fundraising strategy.">Investor Readiness: I have secured paying customers and I am now preparing my pitch and fundraising strategy.</option>
+                    </select>
                  </div>
                  <div style={styles.half}>
                     <label style={styles.label}>Why should I connect with someone?</label>
@@ -243,6 +251,34 @@ const RegisterPage = () => {
               </select>
            </div>
 
+           {connectionType === 'offer' && (
+              <div>
+                <label style={styles.label}>Support Type</label>
+                <select style={styles.select} name="kind_of_support" onChange={handleChange} required value={formData.kind_of_support}>
+                    <option value="">--Select--</option>
+                    <option value="Deliver a training">Deliver a training</option>
+                    <option value="Review pitch deck">Review pitch deck</option>
+                    <option value="Review business model">Review business model</option>
+                    <option value="Connect for Idea validation">Connect for Idea validation</option>
+                    <option value="Support on a Phase/Module">Support on a Phase/Module</option>
+                    <option value="Make connections in a field">Make connections in a field</option>
+                    <option value="Volunteer a talent or skill">Volunteer a talent or skill</option>
+                </select>
+              </div>
+           )}
+
+           {connectionType === 'need' && (
+              <div>
+                <label style={styles.label}>Support Type</label>
+                <select style={styles.select} name="kind_of_support" onChange={handleChange} required value={formData.kind_of_support}>
+                    <option value="">--Select--</option>
+                    <option value="Idea validation">Idea validation</option>
+                    <option value="pitching support">pitching support</option>
+                    <option value="business model refinement">business model refinement</option>
+                </select>
+              </div>
+           )}
+
            {connectionType === 'offer' ? (
               <div>
                 <label style={styles.label}>How many peers can you support? (Globally matched)</label>
@@ -257,7 +293,7 @@ const RegisterPage = () => {
               <div>
                 <label style={styles.label}>Where do you want to match?</label>
                 <select style={styles.select} name="open_to_global_pairing" onChange={handleChange} required value={formData.open_to_global_pairing}>
-                   <option value="No">Match me within my Country</option>
+                   <option value="No">Match me within my country/Module (Slow)</option>
                    <option value="Timezone">Match me within my Time Zone (±3 hours)</option>
                    <option value="Yes">Match me with anyone globally (Fastest)</option>
                 </select>
@@ -272,10 +308,6 @@ const RegisterPage = () => {
                     <option value="3">Group of 3</option>
                 </select>
              </div>
-           )}
-           
-           {connectionType === 'need' && (
-             <div><label style={styles.label}>Support Type</label><select style={styles.select} name="kind_of_support" onChange={handleChange} required><option value="">--Select--</option><option value="Assignment Clarification">Assignment Clarification</option><option value="Technical Issue">Technical Issue</option><option value="Full support">Full support</option></select></div>
            )}
 
            <div style={styles.checkboxContainer}>
