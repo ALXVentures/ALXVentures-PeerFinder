@@ -11,10 +11,10 @@ const PeerFeedbackPage = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Form State
+  // Form State - Dynamically accepted by the backend!
   const [formData, setFormData] = useState({
     email: '',
-    peer_email: '', // NEW
+    peer_email: '',
     program: '',
     session_happened: '',
     no_session_reason: '',
@@ -22,19 +22,19 @@ const PeerFeedbackPage = () => {
     role: '',
     peer_rating: 0,
     session_rating: 0,
+    // Co-Founder Fields
+    cf_synergy: '',
+    cf_continue: '',
+    // Volunteer Fields
     v_preparedness: '',
     v_issue_discussed: '',
     v_confidence: '',
-    v_commit_action: '',
-    v_help_submit: '',
-    v_worked_well: '',
-    v_improve: '',
+    v_help_submit: '', // Did it help validate/submit?
+    // Help Seeker / Buddy Fields
     h_respected: '',
     h_clarified: '',
     h_outcome: '',
-    h_request_again: '',
-    h_most_helpful: '',
-    h_improve: '',
+    // Universal Safeguard
     safeguard_issue: '',
     safeguard_details: ''
   });
@@ -92,23 +92,21 @@ const PeerFeedbackPage = () => {
             <label style={styles.label}>Your Learning Email Address *</label>
             <input style={styles.input} type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="Your email" />
 
-            {/* NEW: PEER EMAIL FOR LEADERBOARD */}
-            <label style={styles.label}>Your Peer's Learning Email Address <span style={{color:'#888', fontWeight:'normal'}}>(Needed)</span></label>
+            <label style={styles.label}>Your Peer's Learning Email Address <span style={{color:'#888', fontWeight:'normal'}}>(Needed for Leaderboard Points)</span></label>
             <input style={styles.input} type="email" name="peer_email" value={formData.peer_email} onChange={handleChange} placeholder="Peer's Email" />
 
             <label style={styles.label}>Your Program *</label>
             <select style={styles.select} name="program" value={formData.program} onChange={handleChange} required>
               <option value="">--Select Program--</option>
-              <option value="VA">Virtual Assistant</option>
-              <option value="AiCE">AI Career Essentials</option>
-              <option value="PF">Professional Foundations</option>
+              <option value="FA">Founder Academy (FA)</option>
+              <option value="FLA">Freelance Academy (FLA)</option>
             </select>
           </div>
 
           {/* --- SECTION 1: ATTENDANCE GATE --- */}
           {formData.email && formData.program && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} style={styles.section}>
-              <label style={styles.label}>Did the scheduled peer support session take place? *</label>
+              <label style={styles.label}>Did the scheduled peer support/meeting take place? *</label>
               <div style={styles.radioGroup}>
                 {['Yes, we both showed up', 'No, I showed up but the other person did not', 'No, I did not show up', 'We rescheduled'].map(opt => (
                   <label key={opt} style={styles.radioLabel}>
@@ -160,40 +158,52 @@ const PeerFeedbackPage = () => {
                 <label style={styles.label}>What was your primary role in this session? *</label>
                 <select style={styles.select} name="role" value={formData.role} onChange={handleChange} required>
                   <option value="">--Select Role--</option>
+                  <option value="CoFounder">We met as potential Co-Founders</option>
                   <option value="Volunteer">I offered support / Volunteered</option>
                   <option value="HelpSeeker">I requested help / Struggling</option>
                   <option value="StudyBuddy">We were just Study Buddies (Equal)</option>
                 </select>
               </div>
 
-              {/* VOLUNTEER PATH */}
+              {/* PATH 1: CO-FOUNDER */}
+              {formData.role === 'CoFounder' && (
+                <div style={styles.section}>
+                  <label style={styles.label}>Did you feel a strong professional synergy with this peer? *</label>
+                  <select style={styles.select} name="cf_synergy" onChange={handleChange} required><option value="">--Select--</option><option value="Yes, strong alignment">Yes, strong alignment</option><option value="Somewhat">Somewhat</option><option value="No, not a good fit">No, not a good fit</option></select>
+
+                  <label style={styles.label}>Do you plan to continue collaborating or formalize a relationship? *</label>
+                  <select style={styles.select} name="cf_continue" onChange={handleChange} required><option value="">--Select--</option><option value="Yes, we are teaming up">Yes, we are teaming up</option><option value="Maybe, still discussing">Maybe, still discussing</option><option value="No, going separate ways">No, going separate ways</option></select>
+                </div>
+              )}
+
+              {/* PATH 2: VOLUNTEER */}
               {formData.role === 'Volunteer' && (
                 <div style={styles.section}>
-                  <label style={styles.label}>How prepared did you feel? *</label>
+                  <label style={styles.label}>How prepared did you feel to assist them? *</label>
                   <select style={styles.select} name="v_preparedness" onChange={handleChange} required><option value="">--Select--</option><option value="Very prepared">Very prepared</option><option value="Somewhat prepared">Somewhat prepared</option><option value="Not prepared">Not prepared</option></select>
 
                   <label style={styles.label}>What was the main issue discussed? *</label>
-                  <select style={styles.select} name="v_issue_discussed" onChange={handleChange} required><option value="">--Select--</option><option value="Test clarification">Test clarification</option><option value="Milestone guidance">Milestone guidance</option><option value="Time management">Time management</option><option value="Motivation">Motivation</option><option value="Technical issue">Technical issue</option><option value="Other">Other</option></select>
+                  <select style={styles.select} name="v_issue_discussed" onChange={handleChange} required><option value="">--Select--</option><option value="Idea Validation">Idea Validation</option><option value="Business Model Refinement">Business Model Refinement</option><option value="Pitch Deck Review">Pitch Deck Review</option><option value="Technical/MVP Execution">Technical/MVP Execution</option><option value="Other">Other</option></select>
 
-                  <label style={styles.label}>Are you confident the learner understood next steps? *</label>
+                  <label style={styles.label}>Are you confident the learner understood the actionable next steps? *</label>
                   <select style={styles.select} name="v_confidence" onChange={handleChange} required><option value="">--Select--</option><option value="Very confident">Very confident</option><option value="Somewhat confident">Somewhat confident</option><option value="Not confident">Not confident</option></select>
                   
-                  <label style={styles.label}>Do you believe this session will help them submit their deliverable? *</label>
+                  <label style={styles.label}>Do you believe this session helped them progress to the next venture phase? *</label>
                   <select style={styles.select} name="v_help_submit" onChange={handleChange} required><option value="">--Select--</option><option value="Yes">Yes</option><option value="Unsure">Unsure</option><option value="No">No</option></select>
                 </div>
               )}
 
-              {/* HELP SEEKER / BUDDY PATH */}
+              {/* PATH 3: HELP SEEKER / BUDDY */}
               {(formData.role === 'HelpSeeker' || formData.role === 'StudyBuddy') && (
                 <div style={styles.section}>
                   <label style={styles.label}>Did you feel respected and supported? *</label>
                   <select style={styles.select} name="h_respected" onChange={handleChange} required><option value="">--Select--</option><option value="Yes">Yes</option><option value="Somewhat">Somewhat</option><option value="No">No</option></select>
 
-                  <label style={styles.label}>Did this clarify your test/milestone? *</label>
+                  <label style={styles.label}>Did this session provide actionable feedback on your Idea/Business Model/Pitch? *</label>
                   <select style={styles.select} name="h_clarified" onChange={handleChange} required><option value="">--Select--</option><option value="Yes">Yes</option><option value="Partially">Partially</option><option value="No">No</option></select>
 
                   <label style={styles.label}>After this session, did you: *</label>
-                  <select style={styles.select} name="h_outcome" onChange={handleChange} required><option value="">--Select--</option><option value="Submit the deliverable">Submit the deliverable</option><option value="Plan to submit within 48 hours">Plan to submit within 48 hours</option><option value="Still unsure">Still unsure</option></select>
+                  <select style={styles.select} name="h_outcome" onChange={handleChange} required><option value="">--Select--</option><option value="Validated Idea">Successfully validated my idea</option><option value="Improved Pitch">Improved my pitch deck</option><option value="Submit the deliverable">Submit the module deliverable</option><option value="Still unsure">Still unsure/stuck</option></select>
                 </div>
               )}
 
@@ -219,7 +229,7 @@ const PeerFeedbackPage = () => {
           {/* SUBMIT BUTTON */}
           {(isSessionNo || (isSessionYes && formData.role && formData.peer_rating > 0 && formData.session_rating > 0 && formData.safeguard_issue)) && (
              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" style={styles.primaryBtn} disabled={loading}>
-             {loading ? <div style={{display:'flex', gap:'10px', justifyContent:'center'}}><Spinner size="20px" /> Saving...</div> : "Submit Feedback ✨"}
+             {loading ? <div style={{display:'flex', gap:'10px', justifyContent:'center'}}><Spinner size="20px" color="white" /> Saving...</div> : "Submit Feedback ✨"}
            </motion.button>
           )}
 
