@@ -202,10 +202,154 @@ def availability_match(a1, a2):
     if not a1_clean or not a2_clean: return False
     return (a1_clean == 'flexible' or a2_clean == 'flexible' or a1_clean == a2_clean)
 
+
+# === SMART MATCHING ENGINE (CROSS-PROGRAM & VACUUM) ===
+def perform_matching(df, user_id):
+    user_rows = df[df['id'] == user_id]
+    if user_rows.empty: return df, False, None
+    
+    idx = user_rows.index[0]
+    user = user_rows.iloc[0]
+    df.at[idx, 'match_attempted'] = True
+    
+    if bool(user['matched']): return df, False, None
+
+    updated = False
+    gid = f"group-{uuid.uuid4()}"
+    iso = datetime.now(timezone.utc).isoformat()
+    
+    u_program = normalize_str(user['program'])
+    u_cohort = normalize_str(user['cohort'])
+    u_country = normalize_str(user['country'])
+    u_module = normalize_str(user['topic_module'])
+    u_avail = normalize_str(user['availability'])
+
+    program_pool = df[(df['matched'] == False) & (df['program'].apply(normalize_str) == u_program) & (df['id'] != user_id)]
+
+    # 1. THE CO-FOUNDER CROSS-PROGRAM MATCHMAKER
+    if user['connection_type'] == 'cofounder':
+        pool = df[
+            (df['matched'] == False) & (df['id'] != user_id) & 
+            (df['connection_type'] == 'cofounder') &
+            (df['cofounder_role'] != user['cofounder_role']) & 
+            (df['skill_type'].apply(normalize_str) == normalize_str(user['skill_type']))
+        ].copy()
+
+        if user['cofounder_role'] == 'looking':
+            cap = int(float(user.get('capacity', 1))) if pd.notna(user.get('capacity')) and user.get('capacity') not in ['', 'None'] else 1
+            if not pool.empty:
+                matched_peers = pool.head(cap)
+                all_idx = [idx] + matched_peers.index.tolist()
+                df.loc[all_idx, 'matched'] = True
+                df.loc[all_idx, 'group_id'] = gid
+                df.loc[all_idx, 'matched_timestamp'] = iso
+                df.loc[all_idx, 'unpair_reason'] = ''
+                updated = True
+        else:
+            # Offering Co-Founders: Seek open "Looking" founders first!
+            active_founders = df[(df['connection_type'] == 'cofounder') & (df['cofounder_role'] == 'looking') & (df['matched'] == True) & (df['skill_type'].apply(normalize_str) == normalize_str(user['skill_type']))]
+            joined_existing = False
+            for v_idx, fndr in active_founders.iterrows():
+                f_cap = int(float(fndr.get('capacity', 1))) if pd.notna(fndr.get('capacity')) and fndr.get('capacity') not in ['', 'None'] else 1
+                v_group_id = fndr['group_id']
+                if not v_group_id: continue
+                current_offers = len(df[(df['group_id'] == v_group_id) & (df['cofounder_role'] == 'offering')])
+                if current_offers < f_cap:
+                    df.at[idx, 'matched'] = True
+                    df.at[idx, 'group_id'] = v_group_id
+                    df.at[idx, 'matched_timestamp'] = iso
+                    df.at[idx, 'unpair_reason'] = ''
+                    updated = True
+                    gid = v_group_id
+                    joined_existing = True
+                    break
+            
+            # If no open groups, pair with unmatched looking founder
+            if not joined_existing and not pool.empty:
+                fndr_idx = pool.index[0]
+                fndr = pool.iloc[0]
+                f_cap = int(float(fndr.get('capacity', 1))) if pd.notna(fndr.get('capacity')) and fndr.get('capacity') not in ['', 'None'] else 1
+                other_offers = df[(df['matched'] == False) & (df['id'] != user_id) & (df['id'] != fndr['id']) & (df['connection_type'] == 'cofounder') & (df['cofounder_role'] == 'offering') & (df['skill_type'].apply(normalize_str) == normalize_str(user['skill_type']))].copy()
+                matched_others = other_offers.head(f_cap - 1)
+                all_idx = [idx, fndr_idx] + matched_others.index.tolist()
+                df.loc[all_idx, 'matched'] = True
+                df.loc[all_idx, 'group_id'] = gid
+                df.loc[all_idx, 'matched_timestamp'] = iso
+                df.loc[all_idx, 'unpair_reason'] = ''
+                updated = True
+
+    # 2. STANDARD ACADEMIC MATCHING (Program Locked)
+    else:
+        if user['connection_type'] == 'find':
+            size = str(user['preferred_study_setup']).replace('.0', '').strip() if pd.notna(user['preferred_study_setup']) and user['preferred_study_setup'] else '2'
+            base_pool = program_pool[(program_pool['connection_type'] == 'find') & (program_pool['preferred_study_setup'].astype(str).str.replace('.0', '', regex=False).str.strip() == size)]
+
+            if str(user.get('open_to_global_pairing', '')).strip().upper() == 'YES':
+                pool = base_pool[(base_pool['cohort'].apply(normalize_str) == u_cohort)].copy()
+            elif str(user.get('open_to_global_pairing', '')).strip().upper() == 'TIMEZONE':
+                pool = base_pool[(base_pool['cohort'].apply(normalize_str) == u_cohort) & (base_pool['timezone'] == user['timezone'])].copy()
+            else:
+                pool = base_pool[(base_pool['cohort'].apply(normalize_str) == u_cohort) & (base_pool['country'].apply(normalize_str) == u_country) & (base_pool['topic_module'].apply(normalize_str) == u_module)].copy()
+            
+            if len(pool) >= (int(size) - 1):
+                all_idx = [idx] + pool.head(int(size) - 1).index.tolist()
+                df.loc[all_idx, 'matched'] = True
+                df.loc[all_idx, 'group_id'] = gid
+                df.loc[all_idx, 'matched_timestamp'] = iso
+                df.loc[all_idx, 'unpair_reason'] = '' 
+                updated = True
+                
+        elif user['connection_type'] == 'offer':
+            cap = int(float(user.get('capacity', 3))) if pd.notna(user.get('capacity')) and user.get('capacity') not in ['', 'None'] else 3
+            pool = program_pool[(program_pool['connection_type'] == 'need') & (program_pool['cohort'].apply(normalize_str) == u_cohort)].copy()
+            if not pool.empty:
+                matched_peers = pool.head(cap)
+                all_idx = [idx] + matched_peers.index.tolist()
+                df.loc[all_idx, 'matched'] = True
+                df.loc[all_idx, 'group_id'] = gid
+                df.loc[all_idx, 'matched_timestamp'] = iso
+                df.loc[all_idx, 'unpair_reason'] = ''
+                updated = True
+                
+        elif user['connection_type'] == 'need':
+            active_vols = df[(df['connection_type'] == 'offer') & (df['program'].apply(normalize_str) == u_program) & (df['cohort'].apply(normalize_str) == u_cohort) & (df['matched'] == True)]
+            joined_existing = False
+            for v_idx, vol in active_vols.iterrows():
+                v_cap = int(float(vol.get('capacity', 3))) if pd.notna(vol.get('capacity')) and vol.get('capacity') not in ['', 'None'] else 3
+                v_group_id = vol['group_id']
+                if not v_group_id: continue
+                current_needers = len(df[(df['group_id'] == v_group_id) & (df['connection_type'] == 'need')])
+                if current_needers < v_cap:
+                    df.at[idx, 'matched'] = True
+                    df.at[idx, 'group_id'] = v_group_id
+                    df.at[idx, 'matched_timestamp'] = iso
+                    df.at[idx, 'unpair_reason'] = ''
+                    updated = True
+                    gid = v_group_id
+                    joined_existing = True
+                    break
+            
+            if not joined_existing:
+                pool = program_pool[(program_pool['connection_type'] == 'offer') & (program_pool['cohort'].apply(normalize_str) == u_cohort)].copy()
+                if not pool.empty:
+                    volunteer_idx = pool.index[0]
+                    volunteer = pool.iloc[0]
+                    v_cap = int(float(volunteer.get('capacity', 3))) if pd.notna(volunteer.get('capacity')) and volunteer.get('capacity') not in ['', 'None'] else 3
+                    other_needers = program_pool[(program_pool['connection_type'] == 'need') & (program_pool['cohort'].apply(normalize_str) == u_cohort) & (program_pool['id'] != user_id)].copy()
+                    matched_other_needers = other_needers.head(v_cap - 1)
+                    all_idx = [idx, volunteer_idx] + matched_other_needers.index.tolist()
+                    df.loc[all_idx, 'matched'] = True
+                    df.loc[all_idx, 'group_id'] = gid
+                    df.loc[all_idx, 'matched_timestamp'] = iso
+                    df.loc[all_idx, 'unpair_reason'] = ''
+                    updated = True
+
+    return df, updated, gid
+
 # === ROUTES ===
 @app.route('/', methods=['GET'])
 @api_wrapper
-def health(): return jsonify({"status": "active", "version": "Ventures_Matchmaker"})
+def health(): return jsonify({"status": "active", "version": "Ventures_Matchmaker_V3"})
 
 @app.route('/api/register', methods=['POST'])
 @api_wrapper
@@ -222,7 +366,7 @@ def register():
     
     existing_mask = ((df['email'] == email) | (df['phone'] == phone)) & (df['connection_type'] == data['connection_type'])
     if not df[existing_mask].empty:
-        idx = df[existing_mask].index[0]
+        idx = existing_mask.idxmax()
         existing = df.loc[idx]
         if bool(existing['matched']):
             return jsonify({"success": False, "is_duplicate": True, "user_id": str(existing['id']), "already_matched": True})
@@ -297,103 +441,45 @@ def match():
     data = request.json
     user_id = data.get('user_id')
     df = download_csv()
-    user_rows = df[df['id'] == user_id]
-    if user_rows.empty: return jsonify({'error': 'User not found'}), 404
     
-    idx = user_rows.index[0]
-    user = user_rows.iloc[0]
-    df.at[idx, 'match_attempted'] = True
+    df, updated, gid = perform_matching(df, user_id)
     upload_csv(df)
     
-    if bool(user['matched']): return jsonify({'matched': True})
-    
-    updated = False
-    gid = f"group-{uuid.uuid4()}"
-    iso = datetime.now(timezone.utc).isoformat()
-    
-    u_cohort = normalize_str(user['cohort'])
-    u_country = normalize_str(user['country'])
-    u_module = normalize_str(user['topic_module'])
-    u_avail = normalize_str(user['availability'])
-
-    # THE CO-FOUNDER CROSS-PROGRAM MATCHMAKER
-    if user['connection_type'] == 'cofounder':
-        pool = df[
-            (df['matched'] == False) & (df['id'] != user_id) & 
-            (df['connection_type'] == 'cofounder') &
-            (df['cofounder_role'] != user['cofounder_role']) & 
-            (df['skill_type'].apply(normalize_str) == normalize_str(user['skill_type']))
-        ].copy()
-
-        if user['cofounder_role'] == 'looking':
-            cap = int(float(user.get('capacity', 1))) if pd.notna(user.get('capacity')) and user.get('capacity') not in ['', 'None'] else 1
-            if not pool.empty:
-                matched_peers = pool.head(cap)
-                all_idx = [idx] + matched_peers.index.tolist()
-                df.loc[all_idx, 'matched'] = True
-                df.loc[all_idx, 'group_id'] = gid
-                df.loc[all_idx, 'matched_timestamp'] = iso
-                df.loc[all_idx, 'unpair_reason'] = ''
-                updated = True
-        else:
-            if not pool.empty:
-                pidx = pool.index[0]
-                df.loc[[idx, pidx], 'matched'] = True
-                df.loc[[idx, pidx], 'group_id'] = gid
-                df.loc[[idx, pidx], 'matched_timestamp'] = iso
-                df.loc[[idx, pidx], 'unpair_reason'] = ''
-                updated = True
-
-    # STANDARD ACADEMIC MATCHING (Program Locked)
-    else:
-        program_pool = df[(df['matched'] == False) & (df['program'] == user['program']) & (df['id'] != user_id)]
-        
-        if user['connection_type'] == 'find':
-            size = str(user['preferred_study_setup']).replace('.0', '').strip() if pd.notna(user['preferred_study_setup']) and user['preferred_study_setup'] else '2'
-            base_pool = program_pool[(program_pool['connection_type'] == 'find') & (program_pool['preferred_study_setup'].astype(str).str.replace('.0', '', regex=False).str.strip() == size)]
-
-            if str(user.get('open_to_global_pairing', '')).strip().upper() == 'YES':
-                pool = base_pool[(base_pool['cohort'].apply(normalize_str) == u_cohort)].copy()
-            elif str(user.get('open_to_global_pairing', '')).strip().upper() == 'TIMEZONE':
-                pool = base_pool[(base_pool['cohort'].apply(normalize_str) == u_cohort) & (base_pool['timezone'] == user['timezone'])].copy()
-            else:
-                pool = base_pool[(base_pool['cohort'].apply(normalize_str) == u_cohort) & (base_pool['country'].apply(normalize_str) == u_country) & (base_pool['topic_module'].apply(normalize_str) == u_module)].copy()
-            
-            if len(pool) >= (int(size) - 1):
-                all_idx = [idx] + pool.head(int(size) - 1).index.tolist()
-                df.loc[all_idx, 'matched'] = True
-                df.loc[all_idx, 'group_id'] = gid
-                df.loc[all_idx, 'matched_timestamp'] = iso
-                df.loc[all_idx, 'unpair_reason'] = '' 
-                updated = True
-                
-        elif user['connection_type'] == 'offer':
-            cap = int(float(user.get('capacity', 3))) if pd.notna(user.get('capacity')) and user.get('capacity') not in ['', 'None'] else 3
-            pool = program_pool[(program_pool['connection_type'] == 'need') & (program_pool['cohort'].apply(normalize_str) == u_cohort)].copy()
-            if not pool.empty:
-                matched_peers = pool.head(cap)
-                all_idx = [idx] + matched_peers.index.tolist()
-                df.loc[all_idx, 'matched'] = True
-                df.loc[all_idx, 'group_id'] = gid
-                df.loc[all_idx, 'matched_timestamp'] = iso
-                df.loc[all_idx, 'unpair_reason'] = ''
-                updated = True
-                
-        elif user['connection_type'] == 'need':
-            pool = program_pool[(program_pool['connection_type'] == 'offer') & (program_pool['cohort'].apply(normalize_str) == u_cohort)].copy()
-            if not pool.empty:
-                pidx = pool.index[0]
-                df.loc[[idx, pidx], 'matched'] = True
-                df.loc[[idx, pidx], 'group_id'] = gid
-                df.loc[[idx, pidx], 'matched_timestamp'] = iso
-                df.loc[[idx, pidx], 'unpair_reason'] = ''
-                updated = True
-
     if updated:
-        upload_csv(df)
         notify_group_match(df, gid)
         return jsonify({'matched': True, 'group_id': gid})
+    
+    user_row = df[df['id'] == user_id]
+    if not user_row.empty and bool(user_row.iloc[0]['matched']):
+        return jsonify({'matched': True, 'group_id': user_row.iloc[0]['group_id']})
+    
     return jsonify({'matched': False})
+
+@app.route('/api/admin/auto-match-queue', methods=['POST'])
+@api_wrapper
+def auto_match_queue():
+    data = request.get_json()
+    if data.get('password') != ADMIN_PASSWORD: return jsonify({"error": "Unauthorized"}), 401
+    
+    df = download_csv()
+    unattempted = df[(df['matched'] == False) & (df['match_attempted'] == False)]
+    
+    if unattempted.empty:
+        return jsonify({"success": True, "message": "Queue is completely clean! No unattempted learners found."})
+        
+    groups_formed = []
+    for uid in unattempted['id'].tolist():
+        current_check = df.loc[df['id'] == uid]
+        if not current_check.empty and bool(current_check.iloc[0]['matched']): continue
+        df, updated, gid = perform_matching(df, uid)
+        if updated: groups_formed.append(gid)
+            
+    upload_csv(df)
+    unique_groups = set(groups_formed)
+    for gid in unique_groups: notify_group_match(df, gid)
+        
+    return jsonify({"success": True, "message": f"Successfully processed the queue. Updated {len(unique_groups)} groups!"})
+
 
 @app.route('/api/leave-group', methods=['POST'])
 @api_wrapper
@@ -431,6 +517,25 @@ def submit_feedback():
     new_row = {'id': str(uuid.uuid4()), 'rating': data.get('rating'), 'comment': data.get('comment', ''), 'timestamp': datetime.now(timezone.utc).isoformat()}
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
     upload_csv(df, FEEDBACK_OBJECT_KEY)
+    return jsonify({"success": True})
+
+# === NEW: 100% DYNAMIC PEER SESSION FEEDBACK ===
+@app.route('/api/peer-feedback', methods=['POST'])
+@api_wrapper
+def submit_peer_session_feedback():
+    data = request.get_json()
+    df = download_csv(SESSION_FEEDBACK_OBJECT_KEY)
+    
+    new_row = {
+        'id': str(uuid.uuid4()),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+    }
+    # Dynamically grab whatever fields the frontend FA/FLA form sends!
+    for key, value in data.items():
+        new_row[key] = value
+        
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    upload_csv(df, SESSION_FEEDBACK_OBJECT_KEY)
     return jsonify({"success": True})
 
 @app.route('/api/admin/data', methods=['POST'])
@@ -509,13 +614,58 @@ def dl_feedback():
     if request.get_json().get('password') != ADMIN_PASSWORD: return jsonify({"error": "Unauthorized"}), 401
     return Response(download_csv(FEEDBACK_OBJECT_KEY).to_csv(index=False), mimetype='text/csv')
 
+@app.route('/api/admin/download-session-feedback', methods=['POST'])
+@api_wrapper
+def dl_session_feedback():
+    if request.get_json().get('password') != ADMIN_PASSWORD: return jsonify({"error": "Unauthorized"}), 401
+    return Response(download_csv(SESSION_FEEDBACK_OBJECT_KEY).to_csv(index=False), mimetype='text/csv')
+
 @app.route('/api/unpair/<user_id>', methods=['POST'])
 @api_wrapper
 def admin_unpair(user_id): return leave_group(user_id=user_id)
 
 @app.route('/api/leaderboard', methods=['GET'])
 @api_wrapper
-def get_leaderboard(): return jsonify({"success": True, "leaderboard": []})
+def get_leaderboard():
+    df_feedback = download_csv(SESSION_FEEDBACK_OBJECT_KEY)
+    if df_feedback.empty or 'peer_email' not in df_feedback.columns: return jsonify({"success": True, "leaderboard": []})
+    df_users = download_csv(CSV_OBJECT_KEY)
+    
+    df_feedback['peer_email'] = df_feedback['peer_email'].astype(str).str.strip().str.lower()
+    df_feedback['email'] = df_feedback['email'].astype(str).str.strip().str.lower()
+    df_feedback['peer_rating'] = pd.to_numeric(df_feedback['peer_rating'], errors='coerce').fillna(0)
+    df_feedback['session_rating'] = pd.to_numeric(df_feedback['session_rating'], errors='coerce').fillna(0)
+    
+    # ANTI-CHEAT LOGIC APPLIED HERE (no self rating!)
+    valid_feedback = df_feedback[(df_feedback['peer_email'] != '') & (df_feedback['peer_email'] != 'nan') & (df_feedback['email'] != df_feedback['peer_email'])].copy()
+    
+    def calculate_points(row):
+        score = row['peer_rating'] + row['session_rating']
+        if str(row.get('h_respected')).strip().lower() == 'yes': score += 5
+        clarified = str(row.get('h_clarified')).strip().lower()
+        if clarified == 'yes': score += 5
+        elif clarified == 'partially': score += 2
+        
+        # New Ventures specific outcome scoring
+        outcome = str(row.get('h_outcome')).strip().lower()
+        if outcome in ['submit the deliverable', 'validated idea', 'improved pitch']: score += 5
+        
+        return score
+
+    if not valid_feedback.empty:
+        valid_feedback['points'] = valid_feedback.apply(calculate_points, axis=1)
+        leaders = valid_feedback.groupby('peer_email')['points'].sum().reset_index()
+        leaders = leaders.sort_values(by='points', ascending=False).head(10)
+    else: return jsonify({"success": True, "leaderboard": []})
+    
+    leaderboard = []
+    for _, row in leaders.iterrows():
+        p_email = row['peer_email']
+        score = int(row['points'])
+        user_match = df_users[df_users['email'].str.lower() == p_email]
+        name = user_match.iloc[0]['name'] if not user_match.empty else p_email.split('@')[0] 
+        leaderboard.append({"name": name, "score": score})
+    return jsonify({"success": True, "leaderboard": leaderboard})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')
