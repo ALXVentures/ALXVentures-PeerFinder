@@ -5,7 +5,6 @@ import axios from 'axios';
 import { colors, fonts } from '../theme';
 import { API_URL } from '../config';
 
-// --- SLIDESHOW DATA ---
 const slides = [
   { id: 1, image: "/slide1.jpg", text: "It's a Match! 🎉", subtext: "Register and get paired instantly." },
   { id: 2, image: "/slide2.jpg", text: "💬 Let's meet!", subtext: "Connect via WhatsApp immediately." },
@@ -37,15 +36,12 @@ const HeroSlideshow = () => {
   );
 };
 
-// --- ANIMATED LEADERBOARD COMPONENT ---
 const Leaderboard = () => {
   const [leaders, setLeaders] = useState([]);
 
   useEffect(() => {
     axios.get(`${API_URL}/api/leaderboard`)
-      .then(res => {
-        if (res.data.success) setLeaders(res.data.leaderboard);
-      })
+      .then(res => { if (res.data.success) setLeaders(res.data.leaderboard); })
       .catch(err => console.error("Error fetching leaderboard", err));
   }, []);
 
@@ -61,9 +57,7 @@ const Leaderboard = () => {
       <h2 style={{color: colors.primary.berkeleyBlue, fontSize: '2.5rem', marginBottom: '10px'}}>🌟 Community Support Stars</h2>
       <p style={{color: '#666', marginBottom: '10px', fontSize: '1.1rem'}}>Spotlighting the top learners helping their peers succeed!</p>
       
-      {/* THE PODIUM */}
       <div style={styles.podiumContainer}>
-        {/* 2nd Place */}
         {second && (
           <motion.div initial={{ y: 50, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.2 }} style={styles.podiumBlockWrap}>
             <div style={styles.avatar}>🥈 🧑‍🎓</div>
@@ -73,7 +67,6 @@ const Leaderboard = () => {
           </motion.div>
         )}
         
-        {/* 1st Place */}
         {first && (
           <motion.div initial={{ y: 50, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.5 }} style={{...styles.podiumBlockWrap, zIndex: 10}}>
             <div style={{...styles.avatar, fontSize: '3.5rem'}}>🥇 🦸‍♂️</div>
@@ -83,7 +76,6 @@ const Leaderboard = () => {
           </motion.div>
         )}
 
-        {/* 3rd Place */}
         {third && (
           <motion.div initial={{ y: 50, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.4 }} style={styles.podiumBlockWrap}>
             <div style={styles.avatar}>🥉 👩‍💻</div>
@@ -94,7 +86,6 @@ const Leaderboard = () => {
         )}
       </div>
 
-      {/* RUNNERS UP LIST */}
       {runnersUp.length > 0 && (
         <div style={styles.runnersUpList}>
           {runnersUp.map((user, idx) => (
@@ -116,19 +107,16 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   
-  // Selection State
   const [step, setStep] = useState(1);
   const [selectedObjective, setSelectedObjective] = useState("");
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedCohort, setSelectedCohort] = useState(null);
 
-  // --- FA AND FLA PROGRAMS ---
   const programs = [
     { id: 'FA', name: 'Founder Academy', icon: '💡', cohorts: ['Cohort 4'] },
     { id: 'FLA', name: 'Freelance Academy', icon: '💻', cohorts: ['Cohort 4'] }
   ];
 
-  // Feedback State
   const [showFeedback, setShowFeedback] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -193,7 +181,6 @@ const LandingPage = () => {
           <motion.div style={styles.modalOverlay} onClick={resetModal}>
             <motion.div style={styles.modalCard} onClick={e => e.stopPropagation()}>
               
-              {/* Step 1: Psychological Primer / Objective Selection */}
               {step === 1 && (
                 <>
                   <h2 style={{color: colors.primary.berkeleyBlue, marginBottom: '10px'}}>What would you like help with? 🤝</h2>
@@ -231,7 +218,6 @@ const LandingPage = () => {
                 </>
               )}
 
-              {/* Step 2: Program Selection */}
               {step === 2 && (
                 <>
                   <button style={styles.backLink} onClick={() => setStep(1)}>&larr; Back</button>
@@ -247,7 +233,6 @@ const LandingPage = () => {
                 </>
               )}
 
-              {/* Step 3: Cohort Selection */}
               {step === 3 && (
                 <>
                   <button style={styles.backLink} onClick={() => setStep(2)}>&larr; Back</button>
@@ -260,13 +245,17 @@ const LandingPage = () => {
                 </>
               )}
 
-              {/* Step 4: Option Selection */}
               {step === 4 && (
                 <>
                   <button style={styles.backLink} onClick={() => setStep(3)}>&larr; Back</button>
                   <h2 style={{color: colors.primary.berkeleyBlue}}>Options</h2>
                   <div style={styles.modalGrid}>
-                    <OptionCard title="Find / Be a Co-Founder 🚀" desc="Startup Matchmaker" color={colors.primary.berkeleyBlue} onClick={() => handleOptionSelect('cofounder')} />
+                    
+                    {/* ANIMATED CO-FOUNDER BUTTON */}
+                    <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}>
+                        <OptionCard title="Find / Be a Co-Founder 🚀" desc="Startup Matchmaker" color={colors.primary.berkeleyBlue} onClick={() => handleOptionSelect('cofounder')} />
+                    </motion.div>
+                    
                     <OptionCard title="Find a Study Buddy 🤝" desc="Accountability Partner / Group" color={colors.primary.iris} onClick={() => handleOptionSelect('find')} />
                     <OptionCard title="Offer Support 💁‍♀️" desc="Volunteer Mode ⭐⭐⭐ " color={colors.primary.springGreen} textColor={colors.primary.berkeleyBlue} onClick={() => handleOptionSelect('offer')} />
                     <OptionCard title="Request Support 🆘" desc="I am Behind / Struggling" color={colors.secondary.tomato} onClick={() => handleOptionSelect('need')} />
@@ -290,7 +279,6 @@ const LandingPage = () => {
         © 2026 Peer Finder. All rights reserved.
       </footer>
 
-      {/* --- FLOATING BUTTONS --- */}
       <button onClick={() => setShowFeedback(true)} style={styles.feedbackBtn}>Rate the Peer Finder ⭐</button>
       
       <motion.button 
@@ -300,7 +288,6 @@ const LandingPage = () => {
         IMPORTANT🌟 Rate Your Peer Session
       </motion.button>
       
-      {/* Tool Feedback Modal */}
       {showFeedback && (
         <div style={styles.modalOverlay} onClick={() => setShowFeedback(false)}>
           <div style={styles.modalCard} onClick={e => e.stopPropagation()}>
@@ -329,7 +316,7 @@ const InfoBlock = ({ title, text }) => (
 );
 
 const OptionCard = ({ title, desc, color, textColor='white', onClick }) => (
-  <motion.button whileHover={{scale: 1.02}} onClick={onClick} style={{...styles.optionCard, background: color, color: textColor}}>
+  <motion.button whileHover={{scale: 1.02}} onClick={onClick} style={{...styles.optionCard, background: color, color: textColor, width: '100%'}}>
     <div style={{fontWeight: 'bold', fontSize: '1.1rem'}}>{title}</div>
     <div style={{fontSize: '0.9rem', opacity: 0.9}}>{desc}</div>
   </motion.button>
@@ -371,7 +358,7 @@ const styles = {
   footer: { background: colors.primary.berkeleyBlue, color: 'rgba(255,255,255,0.6)', textAlign: 'center', padding: '2rem', fontSize: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.1)' },
   feedbackBtn: { position: 'fixed', bottom: '20px', left: '20px', padding: '10px 20px', borderRadius: '30px', border: 'none', background: colors.primary.iris, color: 'white', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '5px', zIndex: 100 },
   peerFeedbackBtn: { position: 'fixed', bottom: '20px', right: '20px', padding: '12px 24px', borderRadius: '30px', border: 'none', background: colors.secondary.tomato, color: 'white', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 100 },
-
+  
   // --- NEW STYLES ---
   select: { width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', backgroundColor: 'white', boxSizing: 'border-box', outlineColor: colors.secondary.electricBlue },
 
