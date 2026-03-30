@@ -52,6 +52,23 @@ const AdminPage = () => {
     });
   };
 
+  const executeAutoMatchQueue = () => {
+    setModal({
+      isOpen: true, type: 'confirm', title: 'Run Auto-Match on Queue?',
+      message: `This will loop through ALL learners who forgot to click "Find Match" and automatically pair them up if a match exists. Do you want to proceed?`,
+      action: async () => {
+        setModal({ ...modal, isOpen: false });
+        setLoading(true);
+        try {
+          const res = await axios.post(`${API_URL}/api/admin/auto-match-queue`, { password });
+          handleResult(res.data.success, res.data.message);
+        } catch (err) { 
+          handleResult(false, err.response?.data?.error || err.message); 
+        } finally { setLoading(false); }
+      }
+    });
+  };
+
   const executePairing = async (endpoint, payload) => {
     try {
       const res = await axios.post(`${API_URL}/api/admin/${endpoint}`, { password, ...payload });
@@ -78,6 +95,20 @@ const AdminPage = () => {
       const res = await axios.post(`${API_URL}/api/admin/download`, { password }, { responseType: 'blob' });
       triggerDownload(res.data, 'ventures_peerfinder_data.csv');
     } catch (err) { alert("Download failed"); }
+  };
+
+  const downloadFeedback = async () => {
+    try {
+      const res = await axios.post(`${API_URL}/api/admin/download-feedback`, { password }, { responseType: 'blob' });
+      triggerDownload(res.data, 'ventures_feedback.csv');
+    } catch (err) { alert("Feedback download failed"); }
+  };
+
+  const downloadSessionFeedback = async () => {
+    try {
+      const res = await axios.post(`${API_URL}/api/admin/download-session-feedback`, { password }, { responseType: 'blob' });
+      triggerDownload(res.data, 'ventures_session_feedback.csv');
+    } catch (err) { alert("Session Feedback download failed"); }
   };
 
   const triggerDownload = (data, filename) => {
@@ -146,6 +177,8 @@ const AdminPage = () => {
         </div>
         <div style={{display:'flex', gap:'10px'}}>
             <button onClick={downloadCSV} style={styles.btnSecondary}>📥 Data</button>
+            <button onClick={downloadFeedback} style={{...styles.btnSecondary, background: colors.secondary.tomato, color:'white'}}>📥 Feedback</button>
+            <button onClick={downloadSessionFeedback} style={{...styles.btnSecondary, background: colors.primary.springGreen, color: colors.primary.berkeleyBlue}}>📥 Session Feedback</button>
         </div>
       </div>
 
@@ -167,6 +200,7 @@ const AdminPage = () => {
                 <StatCard title="Unpaired Needs" value={unpairedList.filter(l => l.connection_type === 'need').length} color={colors.secondary.tomato} emoji="🆘" />
                 <StatCard title="Unpaired Vols" value={unpairedList.filter(l => l.connection_type === 'offer').length} color="#FF9800" emoji="🌟" />
             </div>
+            
             <div style={styles.chartsGrid}>
                 <ChartBox title="By Cohort" data={cohorts} color={colors.primary.iris} />
                 <ChartBox title="Unpaired Days" data={daysUnpaired} color={colors.secondary.tomato} />
@@ -178,7 +212,16 @@ const AdminPage = () => {
         {activeTab === 'unpaired' && (
           <div>
             <div style={styles.filterBar}>
-              <input placeholder="Search by name or email..." style={styles.filterInput} value={filterText} onChange={e => setFilterText(e.target.value)} />
+              <div style={{display:'flex', gap:'15px', alignItems:'center'}}>
+                <input placeholder="Search by name or email..." style={styles.filterInput} value={filterText} onChange={e => setFilterText(e.target.value)} />
+                <button 
+                  style={{...styles.btnPrimary, width: 'auto', background: colors.secondary.electricBlue, boxShadow: '0 4px 10px rgba(0,0,0,0.1)'}} 
+                  onClick={executeAutoMatchQueue}
+                >
+                  ⚡ Auto-Match Unattempted
+                </button>
+              </div>
+
               <AnimatePresence>
                 {selectedIds.length >= 2 && (
                   <motion.button initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} style={styles.fab} onClick={initiateManualPair}>
